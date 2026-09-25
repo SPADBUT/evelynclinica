@@ -1,5 +1,28 @@
 export type PatientStatus = 'ativo' | 'inativo' | 'em_tratamento'
 
+export type UserRole = 'admin' | 'assistente' | 'paciente'
+
+export interface AuthUser {
+  id: string
+  name: string
+  email: string
+  role: UserRole
+  /** Vincula conta de paciente ao prontuário */
+  patientId?: string
+  passwordSalt: string
+  passwordHash: string
+  createdAt: string
+  active: boolean
+}
+
+export interface SessionUser {
+  id: string
+  name: string
+  email: string
+  role: UserRole
+  patientId?: string
+}
+
 export interface Patient {
   id: string
   name: string
@@ -13,6 +36,7 @@ export interface Patient {
   medications: string
   notes: string
   status: PatientStatus
+  tags: string[]
   createdAt: string
   updatedAt: string
 }
@@ -59,7 +83,7 @@ export interface PhotoRecord {
   side: PhotoSide
   takenAt: string
   notes: string
-  /** Data URL (base64) — V1 local. Em V2: storage em nuvem. */
+  /** Data URL (base64) — V1/V2 local. Storage em nuvem em evolução. */
   imageData: string
   pairId?: string
   createdAt: string
@@ -76,6 +100,10 @@ export interface ConsentForm {
   status: ConsentStatus
   signedAt?: string
   signedBy?: string
+  /** Assinatura manuscrita (data URL do canvas) */
+  signatureData?: string
+  /** Trilha LGPD: user agent no momento da assinatura */
+  signedUserAgent?: string
   createdAt: string
 }
 
@@ -91,6 +119,9 @@ export interface Contract {
   endDate?: string
   status: ContractStatus
   clauses: string
+  signedAt?: string
+  signedBy?: string
+  signatureData?: string
   createdAt: string
 }
 
@@ -115,6 +146,50 @@ export interface Budget {
   createdAt: string
 }
 
+/** Pipeline CRM V2 */
+export type LeadStage = 'lead' | 'avaliacao' | 'tratamento' | 'manutencao'
+
+export interface Lead {
+  id: string
+  name: string
+  email: string
+  phone: string
+  source: string
+  stage: LeadStage
+  interest: string
+  notes: string
+  patientId?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type InteractionChannel = 'whatsapp' | 'email' | 'ligacao' | 'outro'
+
+export interface Interaction {
+  id: string
+  /** Paciente ou lead */
+  patientId?: string
+  leadId?: string
+  channel: InteractionChannel
+  summary: string
+  occurredAt: string
+  createdBy: string
+  createdAt: string
+}
+
+export type ReminderKind = 'retorno' | 'orcamento_validade' | 'outro'
+
+export interface Reminder {
+  id: string
+  patientId?: string
+  kind: ReminderKind
+  title: string
+  dueDate: string
+  done: boolean
+  notes: string
+  createdAt: string
+}
+
 export interface ClinicData {
   patients: Patient[]
   records: MedicalRecordEntry[]
@@ -123,6 +198,12 @@ export interface ClinicData {
   consents: ConsentForm[]
   contracts: Contract[]
   budgets: Budget[]
+  users: AuthUser[]
+  leads: Lead[]
+  interactions: Interaction[]
+  reminders: Reminder[]
 }
 
-export const STORAGE_KEY = 'evelyn-clinic-v1'
+export const STORAGE_KEY = 'evelyn-clinic-v2'
+export const SESSION_KEY = 'evelyn-clinic-session-v2'
+export const LEGACY_STORAGE_KEY = 'evelyn-clinic-v1'

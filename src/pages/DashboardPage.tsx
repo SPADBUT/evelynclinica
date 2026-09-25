@@ -6,7 +6,9 @@ import {
   ScrollText,
   Users,
   Wallet,
+  Workflow,
 } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
 import { useClinic } from '../context/ClinicContext'
 import { formatShortDate, todayISO } from '../lib/format'
 import { Badge, Card, PageHeader } from '../components/ui/Card'
@@ -21,17 +23,31 @@ const statusTone = {
 } as const
 
 export function DashboardPage() {
-  const { patients, appointments, consents, contracts, budgets, photos, getPatient, resetDemoData } =
-    useClinic()
+  const { user } = useAuth()
+  const {
+    patients,
+    appointments,
+    consents,
+    contracts,
+    budgets,
+    photos,
+    leads,
+    reminders,
+    getPatient,
+    resetDemoData,
+  } = useClinic()
   const today = todayISO()
   const todayAppts = appointments
     .filter((a) => a.date === today)
     .sort((a, b) => a.startTime.localeCompare(b.startTime))
   const pendingConsents = consents.filter((c) => c.status === 'enviado' || c.status === 'rascunho')
   const openBudgets = budgets.filter((b) => b.status === 'enviado' || b.status === 'rascunho')
+  const openLeads = leads.filter((l) => l.stage === 'lead' || l.stage === 'avaliacao')
+  const openReminders = reminders.filter((r) => !r.done)
 
   const stats = [
     { label: 'Pacientes', value: patients.length, icon: Users, to: '/pacientes' },
+    { label: 'CRM ativos', value: openLeads.length, icon: Workflow, to: '/crm' },
     { label: 'Hoje na agenda', value: todayAppts.length, icon: CalendarDays, to: '/agenda' },
     { label: 'Fotos clínicas', value: photos.length, icon: Camera, to: '/fotos' },
     { label: 'Termos pendentes', value: pendingConsents.length, icon: ClipboardSignature, to: '/termos' },
@@ -42,8 +58,8 @@ export function DashboardPage() {
   return (
     <div>
       <PageHeader
-        title="Bom atendimento, Evelyn"
-        subtitle="Visão geral da clínica — prontuários, agenda e documentos em um só lugar."
+        title={`Bom atendimento, ${user?.name?.split(' ')[0] ?? 'Evelyn'}`}
+        subtitle="V2 — CRM, autenticação e assinatura digital de termos."
         actions={
           <Button variant="secondary" size="sm" onClick={() => resetDemoData()}>
             Restaurar dados demo
@@ -118,9 +134,13 @@ export function DashboardPage() {
                 {contracts.filter((c) => c.status === 'assinado').length}
               </Badge>
             </li>
+            <li className="flex items-center justify-between rounded-xl bg-cream px-3 py-3">
+              <span>Lembretes abertos</span>
+              <Badge tone="warning">{openReminders.length}</Badge>
+            </li>
           </ul>
           <p className="mt-4 text-xs text-muted">
-            Hoje: {formatShortDate(today)}. Dados permanecem neste navegador até a V2 (nuvem + CRM).
+            Hoje: {formatShortDate(today)}. Dados V2 neste navegador (auth + portal da paciente).
           </p>
         </Card>
       </div>

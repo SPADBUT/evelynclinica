@@ -5,16 +5,21 @@ import {
   ClipboardSignature,
   FileText,
   LayoutDashboard,
+  LogOut,
   Menu,
   ScrollText,
   Users,
   Wallet,
+  Workflow,
   X,
 } from 'lucide-react'
 import { useState } from 'react'
+import { useAuth } from '../../context/AuthContext'
+import { Button } from '../ui/Button'
 
 const nav = [
   { to: '/', label: 'Painel', icon: LayoutDashboard, end: true },
+  { to: '/crm', label: 'CRM', icon: Workflow },
   { to: '/pacientes', label: 'Prontuários', icon: Users },
   { to: '/agenda', label: 'Agenda', icon: CalendarDays },
   { to: '/fotos', label: 'Antes & Depois', icon: Camera },
@@ -25,6 +30,7 @@ const nav = [
 
 export function AppLayout() {
   const [open, setOpen] = useState(false)
+  const { user, logout } = useAuth()
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
@@ -72,9 +78,18 @@ export function AppLayout() {
 
           <div className="border-t border-white/10 px-5 py-4 text-xs text-blush/80">
             <p className="flex items-center gap-2">
-              <FileText size={14} /> V1 · Gestão clínica
+              <FileText size={14} /> V2 · CRM & assinatura
             </p>
-            <p className="mt-1">Dados salvos neste dispositivo (LGPD local).</p>
+            <p className="mt-2 text-cream/90">{user?.name}</p>
+            <p className="mt-0.5 capitalize">{user?.role}</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-3 text-blush hover:bg-white/10 hover:text-white"
+              onClick={logout}
+            >
+              <LogOut size={14} /> Sair
+            </Button>
           </div>
         </div>
       </aside>

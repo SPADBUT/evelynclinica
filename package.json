@@ -1,9 +1,9 @@
 {
   "name": "evelynclinica",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
-  "description": "Evelyn Clínica Estética — V1 gestão de prontuários, agenda, fotos, termos, contratos e orçamentos",
+  "description": "Evelyn Clínica Estética — V2 CRM, autenticação e assinatura digital de termos",
   "homepage": "https://spadbut.github.io/evelynclinica/",
   "scripts": {
     "dev": "vite",
