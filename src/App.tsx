@@ -13,7 +13,7 @@ import { BudgetsPage } from './pages/BudgetsPage'
 export default function App() {
   return (
     <ClinicProvider>
-      <BrowserRouter>
+      <BrowserRouter basename="/evelynclinica">
         <Routes>
           <Route element={<AppLayout />}>
             <Route index element={<DashboardPage />} />

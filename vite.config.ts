@@ -2,8 +2,8 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
-// Custom domain (evelynclinica.com.br) serves from site root.
+// Free GitHub Pages URL: https://spadbut.github.io/evelynclinica/
 export default defineConfig({
-  base: '/',
+  base: '/evelynclinica/',
   plugins: [react(), tailwindcss()],
 })

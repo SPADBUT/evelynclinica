@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "description": "Evelyn Clínica Estética — V1 gestão de prontuários, agenda, fotos, termos, contratos e orçamentos",
-  "homepage": "https://evelynclinica.com.br",
+  "homepage": "https://spadbut.github.io/evelynclinica/",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
