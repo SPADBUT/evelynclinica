@@ -4,12 +4,19 @@ import { Button } from './ui/Button'
 interface SignaturePadProps {
   onChange: (dataUrl: string | null) => void
   className?: string
+  /** Nome para gerar assinatura tipográfica acessível */
+  typedName?: string
 }
 
-export function SignaturePad({ onChange, className = '' }: SignaturePadProps) {
+export function SignaturePad({ onChange, className = '', typedName = '' }: SignaturePadProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const drawing = useRef(false)
+  const onChangeRef = useRef(onChange)
   const [hasInk, setHasInk] = useState(false)
+
+  useEffect(() => {
+    onChangeRef.current = onChange
+  }, [onChange])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -17,26 +24,47 @@ export function SignaturePad({ onChange, className = '' }: SignaturePadProps) {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const resize = () => {
-      const ratio = window.devicePixelRatio || 1
-      const width = canvas.clientWidth
-      const height = canvas.clientHeight
-      canvas.width = Math.floor(width * ratio)
-      canvas.height = Math.floor(height * ratio)
-      ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
-      ctx.lineWidth = 2
-      ctx.lineCap = 'round'
-      ctx.strokeStyle = '#2a2224'
-      ctx.fillStyle = '#ffffff'
-      ctx.fillRect(0, 0, width, height)
-      setHasInk(false)
-      onChange(null)
-    }
+    const ratio = window.devicePixelRatio || 1
+    const width = canvas.clientWidth || 640
+    const height = canvas.clientHeight || 160
+    canvas.width = Math.floor(width * ratio)
+    canvas.height = Math.floor(height * ratio)
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
+    ctx.lineWidth = 2
+    ctx.lineCap = 'round'
+    ctx.strokeStyle = '#2a2224'
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, width, height)
+  }, [])
 
-    resize()
-    window.addEventListener('resize', resize)
-    return () => window.removeEventListener('resize', resize)
-  }, [onChange])
+  const clearCanvas = () => {
+    const canvas = canvasRef.current
+    const ctx = canvas?.getContext('2d')
+    if (!canvas || !ctx) return
+    const width = canvas.clientWidth || 640
+    const height = canvas.clientHeight || 160
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, width, height)
+    setHasInk(false)
+    onChangeRef.current(null)
+  }
+
+  const applyTypedSignature = () => {
+    const canvas = canvasRef.current
+    const ctx = canvas?.getContext('2d')
+    const name = typedName.trim()
+    if (!canvas || !ctx || !name) return
+    const width = canvas.clientWidth || 640
+    const height = canvas.clientHeight || 160
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, width, height)
+    ctx.fillStyle = '#2a2224'
+    ctx.font = "32px 'Cormorant Garamond', Georgia, serif"
+    ctx.textBaseline = 'middle'
+    ctx.fillText(name, 24, height / 2)
+    setHasInk(true)
+    onChangeRef.current(canvas.toDataURL('image/png'))
+  }
 
   const pointFromEvent = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current!
@@ -47,7 +75,7 @@ export function SignaturePad({ onChange, className = '' }: SignaturePadProps) {
   const emit = () => {
     const canvas = canvasRef.current
     if (!canvas) return
-    onChange(canvas.toDataURL('image/png'))
+    onChangeRef.current(canvas.toDataURL('image/png'))
   }
 
   return (
@@ -76,16 +104,8 @@ export function SignaturePad({ onChange, className = '' }: SignaturePadProps) {
         }}
         onPointerUp={() => {
           drawing.current = false
-          if (hasInk) emit()
-          else {
-            const canvas = canvasRef.current
-            const ctx = canvas?.getContext('2d')
-            if (canvas && ctx) {
-              // check if anything was drawn in this stroke
-              emit()
-              setHasInk(true)
-            }
-          }
+          emit()
+          setHasInk(true)
         }}
         onPointerLeave={() => {
           if (drawing.current) {
@@ -95,25 +115,24 @@ export function SignaturePad({ onChange, className = '' }: SignaturePadProps) {
           }
         }}
       />
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <p className="text-xs text-muted">Assine com o dedo ou mouse dentro da área.</p>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={() => {
-            const canvas = canvasRef.current
-            const ctx = canvas?.getContext('2d')
-            if (!canvas || !ctx) return
-            ctx.fillStyle = '#ffffff'
-            ctx.fillRect(0, 0, canvas.clientWidth, canvas.clientHeight)
-            setHasInk(false)
-            onChange(null)
-          }}
-        >
-          Limpar
-        </Button>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted">Assine com o dedo/mouse ou use a assinatura tipográfica.</p>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={!typedName.trim()}
+            onClick={applyTypedSignature}
+          >
+            Usar nome como assinatura
+          </Button>
+          <Button type="button" variant="secondary" size="sm" onClick={clearCanvas}>
+            Limpar
+          </Button>
+        </div>
       </div>
+      <span className="sr-only">{hasInk ? 'assinatura presente' : 'sem assinatura'}</span>
     </div>
   )
 }

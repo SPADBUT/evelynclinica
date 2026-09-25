@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useClinic } from '../../context/ClinicContext'
@@ -18,10 +18,12 @@ export function SignConsentPage() {
   const [fullName, setFullName] = useState(user?.name ?? '')
   const [accepted, setAccepted] = useState(false)
   const [signatureData, setSignatureData] = useState<string | null>(null)
+  const signatureRef = useRef<string | null>(null)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
   const onSignatureChange = useCallback((data: string | null) => {
+    signatureRef.current = data
     setSignatureData(data)
   }, [])
 
@@ -35,8 +37,9 @@ export function SignConsentPage() {
 
   const alreadySigned = consent.status === 'assinado'
 
-  async function handleSign() {
+  function handleSign() {
     setError('')
+    const signature = signatureRef.current ?? signatureData
     if (!fullName.trim()) {
       setError('Informe o nome completo.')
       return
@@ -45,15 +48,15 @@ export function SignConsentPage() {
       setError('Confirme que leu e concorda com o termo.')
       return
     }
-    if (!signatureData) {
+    if (!signature) {
       setError('Desenhe sua assinatura na área indicada.')
       return
     }
     setSaving(true)
     const result = signConsent({
-      consentId: consent!.id,
+      consentId: consent.id,
       signedBy: fullName.trim(),
-      signatureData,
+      signatureData: signature,
     })
     setSaving(false)
     if (!result.ok) {
@@ -111,7 +114,7 @@ export function SignConsentPage() {
             <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted">
               Assinatura manuscrita
             </p>
-            <SignaturePad onChange={onSignatureChange} />
+            <SignaturePad onChange={onSignatureChange} typedName={fullName} />
           </div>
 
           <label className="flex items-start gap-3 text-sm text-ink">
