@@ -35,13 +35,17 @@ npm run build    # build de produção
 npm run preview  # preview do build
 ```
 
-## Deploy (GitHub Pages)
+## Deploy (GitHub Pages — gratuito)
 
-O site é publicado via GitHub Actions em **GitHub Pages**, com domínio customizado:
+Não precisa comprar domínio. O app sobe em:
 
-- `evelynclinica.com.br`
+**https://spadbut.github.io/evelynclinica/**
 
-Após o merge em `main`, configure em **Settings → Pages → Custom domain** o domínio acima e aponte o DNS conforme o passo a passo do provedor.
+1. Em **Settings → Pages**, Source = **GitHub Actions**
+2. Se existir **Custom domain**, clique em **Remove** (sem domínio pago o check DNS falha)
+3. Após o merge em `main`, o workflow publica automaticamente
+
+Domínio próprio (`.com.br`) é opcional e pago — ver `DNS.md` só se quiser isso depois.
 
 ## Estrutura
 
