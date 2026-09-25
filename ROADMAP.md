@@ -1,44 +1,44 @@
 # Roadmap — Evelyn Clínica Estética
 
-## V1 — Gestão clínica operacional ✅ (atual)
+## V1 — Gestão clínica operacional ✅
 
 Foco: operação do consultório.
 
 | Módulo | Status |
 |---|---|
 | Prontuários de pacientes | ✅ |
-| Evoluções clínicas (anamnese / procedimento / próximos passos) | ✅ |
+| Evoluções clínicas | ✅ |
 | Agenda | ✅ |
 | Fotos antes & depois | ✅ |
 | Termos de consentimento | ✅ |
 | Contratos | ✅ |
 | Orçamentos | ✅ |
 | Painel com resumo do dia | ✅ |
-| Persistência local (dispositivo) | ✅ |
-
-### Limitações conscientes da V1
-
-- Sem login / multi-usuário
-- Sem nuvem (dados no `localStorage`)
-- Fotos em base64 com limite de tamanho
-- Sem assinatura digital avançada (marca “assinado” manualmente)
-- Sem envio automático de PDF/WhatsApp
+| Persistência local | ✅ |
 
 ---
 
-## V2 — CRM & relacionamento
+## V2 — CRM & relacionamento ✅ (atual)
 
-Foco: gestão de clientes e recorrência.
+Foco: gestão de clientes, autenticação e assinatura digital.
 
-- Autenticação e perfis (Evelyn + assistente)
-- Backend seguro (API + banco) com LGPD
-- CRM: pipeline de leads → avaliação → tratamento → manutenção
-- Histórico de interações (WhatsApp, e-mail, ligações)
-- Gestão de assinaturas / planos recorrentes
-- Lembretes automáticos de retorno e validade de orçamento
-- Assinatura digital de termos e contratos
-- Upload de fotos em storage dedicado
-- Tags, segmentos e campanhas leves
+| Módulo | Status |
+|---|---|
+| Autenticação e perfis (Evelyn + assistente + paciente) | ✅ |
+| Portal da paciente | ✅ |
+| Assinatura digital de termos (canvas + aceite + trilha) | ✅ |
+| Geração de login/senha para pacientes | ✅ |
+| CRM: pipeline leads → avaliação → tratamento → manutenção | ✅ |
+| Histórico de interações (WhatsApp, e-mail, ligações) | ✅ |
+| Lembretes de retorno e validade de orçamento | ✅ |
+| Tags / segmentos leves em pacientes | ✅ |
+| Migração automática dos dados V1 | ✅ |
+
+### Notas da V2
+
+- Persistência ainda local (`localStorage`) com senhas hasheadas — adequado para operação em um dispositivo / demo.
+- Próximo passo de infraestrutura: API + banco em nuvem (mesmo modelo de dados).
+- Fotos ainda em base64 no dispositivo; storage dedicado permanece na evolução de infraestrutura.
 
 ---
 
@@ -54,6 +54,7 @@ Foco: saúde financeira do negócio.
 - LTV (lifetime value) por paciente
 - Ticket médio, taxa de conversão de orçamento e inadimplência
 - Dashboards e exportação para planilha/contabilidade
+- Backend seguro em nuvem com LGPD (continuidade da V2)
 
 ---
 
@@ -61,5 +62,5 @@ Foco: saúde financeira do negócio.
 
 1. **Clínico primeiro** — prontuário e segurança do paciente acima de tudo.
 2. **Elegante e simples** — UI limpa, sem parecer SaaS genérico.
-3. **Evolutivo** — V1 local → V2 CRM/nuvem → V3 financeiro.
+3. **Evolutivo** — V1 local → V2 CRM/auth → V3 financeiro + nuvem.
 4. **LGPD by design** — consentimento, minimização e trilha de acesso.

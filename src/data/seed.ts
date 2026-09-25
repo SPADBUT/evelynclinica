@@ -20,12 +20,35 @@ const CONTRACT_CLAUSES = `1. Objeto: prestação de serviços de biomedicina est
 4. Fotografias clínicas são de uso exclusivo do prontuário, salvo autorização expressa.
 5. Foro: comarca do local de atendimento.`
 
+/** Hashes pré-calculados (SHA-256 de salt:senha) para contas demo. */
+const DEMO_HASHES = {
+  evelyn: {
+    salt: 'evelyn-salt',
+    hash: '49b9d540b0730a7c0f3cd944c99ba12147e8f18e6e2dc46ea3ef11f38ea82343',
+  },
+  assistente: {
+    salt: 'assist-salt',
+    hash: '0d5f931b50ccbe9490c4a45248e62742d57f92e0802deee6999dd1d86b781cb0',
+  },
+  ana: {
+    salt: 'ana-salt',
+    hash: '3776282644b742786cdef87a837e755490aff2c6504edac3493a0465a086e7ca',
+  },
+  juliana: {
+    salt: 'juliana-salt',
+    hash: '0279c5d5ca86c79f5478bcd830c77576cc3dd3558cba9364ff14497bcfc40ea9',
+  },
+}
+
 export function createSeedData(): ClinicData {
   const today = todayISO()
   const p1 = uuid()
   const p2 = uuid()
   const p3 = uuid()
   const pairId = uuid()
+  const lead1 = uuid()
+  const lead2 = uuid()
+  const budgetPending = uuid()
 
   return {
     patients: [
@@ -42,6 +65,7 @@ export function createSeedData(): ClinicData {
         medications: 'Anticoncepcional oral',
         notes: 'Preferência por horários matinais.',
         status: 'em_tratamento',
+        tags: ['harmonização', 'vip'],
         createdAt: '2026-01-10T10:00:00.000Z',
         updatedAt: '2026-03-01T10:00:00.000Z',
       },
@@ -58,6 +82,7 @@ export function createSeedData(): ClinicData {
         medications: 'Nenhuma',
         notes: 'Histórico de melasma — evitar exposição solar.',
         status: 'ativo',
+        tags: ['pele', 'retorno'],
         createdAt: '2026-02-05T14:00:00.000Z',
         updatedAt: '2026-02-20T14:00:00.000Z',
       },
@@ -74,6 +99,7 @@ export function createSeedData(): ClinicData {
         medications: 'Vitamina D',
         notes: 'Primeira avaliação estética.',
         status: 'ativo',
+        tags: ['nova'],
         createdAt: '2026-03-12T09:00:00.000Z',
         updatedAt: '2026-03-12T09:00:00.000Z',
       },
@@ -201,12 +227,14 @@ export function createSeedData(): ClinicData {
         endDate: '2026-05-15',
         status: 'assinado',
         clauses: CONTRACT_CLAUSES,
+        signedAt: '2026-02-14T19:00:00.000Z',
+        signedBy: 'Ana Beatriz Mendes',
         createdAt: '2026-02-14T18:30:00.000Z',
       },
     ],
     budgets: [
       {
-        id: uuid(),
+        id: budgetPending,
         patientId: p2,
         title: 'Protocolo pele — peeling + home care',
         items: [
@@ -254,6 +282,153 @@ export function createSeedData(): ClinicData {
         createdAt: '2026-03-12T10:00:00.000Z',
       },
     ],
+    users: [
+      {
+        id: uuid(),
+        name: 'Evelyn Preto Silva',
+        email: 'evelyn@clinica.com',
+        role: 'admin',
+        passwordSalt: DEMO_HASHES.evelyn.salt,
+        passwordHash: DEMO_HASHES.evelyn.hash,
+        createdAt: '2026-01-01T10:00:00.000Z',
+        active: true,
+      },
+      {
+        id: uuid(),
+        name: 'Assistente Clínica',
+        email: 'assistente@clinica.com',
+        role: 'assistente',
+        passwordSalt: DEMO_HASHES.assistente.salt,
+        passwordHash: DEMO_HASHES.assistente.hash,
+        createdAt: '2026-01-01T10:00:00.000Z',
+        active: true,
+      },
+      {
+        id: uuid(),
+        name: 'Ana Beatriz Mendes',
+        email: 'ana.mendes@email.com',
+        role: 'paciente',
+        patientId: p1,
+        passwordSalt: DEMO_HASHES.ana.salt,
+        passwordHash: DEMO_HASHES.ana.hash,
+        createdAt: '2026-02-14T18:00:00.000Z',
+        active: true,
+      },
+      {
+        id: uuid(),
+        name: 'Juliana Ferreira',
+        email: 'juliana.ferreira@email.com',
+        role: 'paciente',
+        patientId: p3,
+        passwordSalt: DEMO_HASHES.juliana.salt,
+        passwordHash: DEMO_HASHES.juliana.hash,
+        createdAt: '2026-03-12T09:15:00.000Z',
+        active: true,
+      },
+    ],
+    leads: [
+      {
+        id: lead1,
+        name: 'Mariana Lopes',
+        email: 'mariana.lopes@email.com',
+        phone: '11988887777',
+        source: 'Instagram',
+        stage: 'lead',
+        interest: 'Harmonização facial',
+        notes: 'Pediu orçamento pelo Direct.',
+        createdAt: '2026-03-18T14:00:00.000Z',
+        updatedAt: '2026-03-18T14:00:00.000Z',
+      },
+      {
+        id: lead2,
+        name: 'Fernanda Alves',
+        email: 'fernanda.alves@email.com',
+        phone: '11977776666',
+        source: 'Indicação',
+        stage: 'avaliacao',
+        interest: 'Toxina botulínica',
+        notes: 'Avaliação agendada para a próxima semana.',
+        createdAt: '2026-03-10T11:00:00.000Z',
+        updatedAt: '2026-03-20T09:00:00.000Z',
+      },
+      {
+        id: uuid(),
+        name: 'Ana Beatriz Mendes',
+        email: 'ana.mendes@email.com',
+        phone: '11987654321',
+        source: 'Indicação',
+        stage: 'tratamento',
+        interest: 'Bioestimulador',
+        notes: 'Paciente convertida — em protocolo ativo.',
+        patientId: p1,
+        createdAt: '2026-01-05T10:00:00.000Z',
+        updatedAt: '2026-02-15T10:00:00.000Z',
+      },
+      {
+        id: uuid(),
+        name: 'Camila Rocha Santos',
+        email: 'camila.rocha@email.com',
+        phone: '11976543210',
+        source: 'Google',
+        stage: 'manutencao',
+        interest: 'Peeling',
+        notes: 'Em manutenção de pele.',
+        patientId: p2,
+        createdAt: '2026-01-20T10:00:00.000Z',
+        updatedAt: '2026-02-20T10:00:00.000Z',
+      },
+    ],
+    interactions: [
+      {
+        id: uuid(),
+        leadId: lead1,
+        channel: 'whatsapp',
+        summary: 'Enviado cardápio de procedimentos e faixa de valores.',
+        occurredAt: '2026-03-18T15:30:00.000Z',
+        createdBy: 'Assistente Clínica',
+        createdAt: '2026-03-18T15:30:00.000Z',
+      },
+      {
+        id: uuid(),
+        patientId: p3,
+        channel: 'email',
+        summary: 'Link de acesso enviado para assinatura do termo de consentimento.',
+        occurredAt: '2026-03-12T09:20:00.000Z',
+        createdBy: 'Evelyn Preto Silva',
+        createdAt: '2026-03-12T09:20:00.000Z',
+      },
+      {
+        id: uuid(),
+        patientId: p2,
+        channel: 'ligacao',
+        summary: 'Confirmou interesse no pacote de peeling; aguarda retorno.',
+        occurredAt: '2026-03-02T11:00:00.000Z',
+        createdBy: 'Assistente Clínica',
+        createdAt: '2026-03-02T11:00:00.000Z',
+      },
+    ],
+    reminders: [
+      {
+        id: uuid(),
+        patientId: p1,
+        kind: 'retorno',
+        title: 'Retorno bioestimulador — Ana',
+        dueDate: today,
+        done: false,
+        notes: 'Avaliar resultado aos 30 dias.',
+        createdAt: '2026-03-01T10:00:00.000Z',
+      },
+      {
+        id: uuid(),
+        patientId: p2,
+        kind: 'orcamento_validade',
+        title: 'Orçamento peeling — Camila',
+        dueDate: addDays(today, 15),
+        done: false,
+        notes: 'Lembrar validade do orçamento enviado.',
+        createdAt: '2026-03-01T12:05:00.000Z',
+      },
+    ],
   }
 }
 
@@ -274,4 +449,4 @@ function placeholderImage(label: string, color: string): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
 }
 
-export { CONSENT_TEMPLATE, CONTRACT_CLAUSES }
+export { CONSENT_TEMPLATE, CONTRACT_CLAUSES, DEMO_HASHES }

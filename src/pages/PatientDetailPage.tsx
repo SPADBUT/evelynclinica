@@ -72,6 +72,7 @@ export function PatientDetailPage() {
       medications: patient!.medications,
       notes: patient!.notes,
       status: patient!.status,
+      tags: patient!.tags ?? [],
     })
     setEditOpen(true)
   }

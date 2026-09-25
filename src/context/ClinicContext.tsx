@@ -7,16 +7,21 @@ import {
   type ReactNode,
 } from 'react'
 import { v4 as uuid } from 'uuid'
+import { createSalt, hashPassword } from '../lib/auth'
 import { loadClinicData, resetClinicData, saveClinicData } from '../lib/storage'
 import type {
   Appointment,
+  AuthUser,
   Budget,
   ClinicData,
   ConsentForm,
   Contract,
+  Interaction,
+  Lead,
   MedicalRecordEntry,
   Patient,
   PhotoRecord,
+  Reminder,
 } from '../types'
 
 interface ClinicContextValue {
@@ -27,6 +32,10 @@ interface ClinicContextValue {
   consents: ConsentForm[]
   contracts: Contract[]
   budgets: Budget[]
+  users: AuthUser[]
+  leads: Lead[]
+  interactions: Interaction[]
+  reminders: Reminder[]
   getPatient: (id: string) => Patient | undefined
   upsertPatient: (patient: Omit<Patient, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => string
   deletePatient: (id: string) => void
@@ -38,11 +47,27 @@ interface ClinicContextValue {
   deletePhoto: (id: string) => void
   upsertConsent: (item: Omit<ConsentForm, 'id' | 'createdAt'> & { id?: string }) => string
   deleteConsent: (id: string) => void
+  signConsent: (input: {
+    consentId: string
+    signedBy: string
+    signatureData: string
+  }) => { ok: true } | { ok: false; error: string }
   upsertContract: (item: Omit<Contract, 'id' | 'createdAt'> & { id?: string }) => string
   deleteContract: (id: string) => void
   upsertBudget: (item: Omit<Budget, 'id' | 'createdAt'> & { id?: string }) => string
   deleteBudget: (id: string) => void
+  upsertLead: (item: Omit<Lead, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => string
+  deleteLead: (id: string) => void
+  upsertInteraction: (item: Omit<Interaction, 'id' | 'createdAt'> & { id?: string }) => string
+  deleteInteraction: (id: string) => void
+  upsertReminder: (item: Omit<Reminder, 'id' | 'createdAt'> & { id?: string }) => string
+  deleteReminder: (id: string) => void
+  ensurePatientAccess: (input: {
+    patientId: string
+    password: string
+  }) => Promise<{ ok: true; email: string } | { ok: false; error: string }>
   resetDemoData: () => void
+  reload: () => void
 }
 
 const ClinicContext = createContext<ClinicContextValue | null>(null)
@@ -72,33 +97,40 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
     setData(next)
   }, [])
 
+  const reload = useCallback(() => {
+    setData(loadClinicData())
+  }, [])
+
   const getPatient = useCallback(
     (id: string) => data.patients.find((p) => p.id === id),
     [data.patients],
   )
 
-  const upsertPatient: ClinicContextValue['upsertPatient'] = useCallback(
-    (patient) => {
-      const now = new Date().toISOString()
-      const id = patient.id ?? uuid()
-      setData((prev) => {
-        const existing = prev.patients.find((p) => p.id === id)
-        const nextPatient: Patient = existing
-          ? { ...existing, ...patient, id, updatedAt: now }
-          : { ...patient, id, createdAt: now, updatedAt: now }
-        const next = {
-          ...prev,
-          patients: existing
-            ? prev.patients.map((p) => (p.id === id ? nextPatient : p))
-            : [nextPatient, ...prev.patients],
-        }
-        saveClinicData(next)
-        return next
-      })
-      return id
-    },
-    [],
-  )
+  const upsertPatient: ClinicContextValue['upsertPatient'] = useCallback((patient) => {
+    const now = new Date().toISOString()
+    const id = patient.id ?? uuid()
+    setData((prev) => {
+      const existing = prev.patients.find((p) => p.id === id)
+      const nextPatient: Patient = existing
+        ? { ...existing, ...patient, id, tags: patient.tags ?? existing.tags ?? [], updatedAt: now }
+        : {
+            ...patient,
+            id,
+            tags: patient.tags ?? [],
+            createdAt: now,
+            updatedAt: now,
+          }
+      const next = {
+        ...prev,
+        patients: existing
+          ? prev.patients.map((p) => (p.id === id ? nextPatient : p))
+          : [nextPatient, ...prev.patients],
+      }
+      saveClinicData(next)
+      return next
+    })
+    return id
+  }, [])
 
   const deletePatient = useCallback((id: string) => {
     setData((prev) => {
@@ -111,6 +143,10 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
         consents: prev.consents.filter((c) => c.patientId !== id),
         contracts: prev.contracts.filter((c) => c.patientId !== id),
         budgets: prev.budgets.filter((b) => b.patientId !== id),
+        users: prev.users.filter((u) => u.patientId !== id),
+        interactions: prev.interactions.filter((i) => i.patientId !== id),
+        reminders: prev.reminders.filter((r) => r.patientId !== id),
+        leads: prev.leads.map((l) => (l.patientId === id ? { ...l, patientId: undefined } : l)),
       }
       saveClinicData(next)
       return next
@@ -197,6 +233,41 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  const signConsent: ClinicContextValue['signConsent'] = useCallback((input) => {
+    let result: { ok: true } | { ok: false; error: string } = { ok: false, error: 'Termo não encontrado.' }
+    setData((prev) => {
+      const consent = prev.consents.find((c) => c.id === input.consentId)
+      if (!consent) {
+        result = { ok: false, error: 'Termo não encontrado.' }
+        return prev
+      }
+      if (consent.status === 'assinado') {
+        result = { ok: false, error: 'Este termo já foi assinado.' }
+        return prev
+      }
+      if (consent.status === 'rascunho') {
+        result = { ok: false, error: 'Este termo ainda não foi liberado para assinatura.' }
+        return prev
+      }
+      const nextConsent: ConsentForm = {
+        ...consent,
+        status: 'assinado',
+        signedAt: new Date().toISOString(),
+        signedBy: input.signedBy.trim(),
+        signatureData: input.signatureData,
+        signedUserAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+      }
+      const next = {
+        ...prev,
+        consents: prev.consents.map((c) => (c.id === consent.id ? nextConsent : c)),
+      }
+      saveClinicData(next)
+      result = { ok: true }
+      return next
+    })
+    return result
+  }, [])
+
   const upsertContract: ClinicContextValue['upsertContract'] = useCallback((item) => {
     let id = ''
     setData((prev) => {
@@ -237,6 +308,135 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  const upsertLead: ClinicContextValue['upsertLead'] = useCallback((item) => {
+    const now = new Date().toISOString()
+    const id = item.id ?? uuid()
+    setData((prev) => {
+      const existing = prev.leads.find((l) => l.id === id)
+      const nextLead: Lead = existing
+        ? { ...existing, ...item, id, updatedAt: now }
+        : { ...item, id, createdAt: now, updatedAt: now }
+      const next = {
+        ...prev,
+        leads: existing
+          ? prev.leads.map((l) => (l.id === id ? nextLead : l))
+          : [nextLead, ...prev.leads],
+      }
+      saveClinicData(next)
+      return next
+    })
+    return id
+  }, [])
+
+  const deleteLead = useCallback((id: string) => {
+    setData((prev) => {
+      const next = {
+        ...prev,
+        leads: prev.leads.filter((l) => l.id !== id),
+        interactions: prev.interactions.filter((i) => i.leadId !== id),
+      }
+      saveClinicData(next)
+      return next
+    })
+  }, [])
+
+  const upsertInteraction: ClinicContextValue['upsertInteraction'] = useCallback((item) => {
+    let id = ''
+    setData((prev) => {
+      const result = upsertInList(prev.interactions, item)
+      id = result.id
+      const next = { ...prev, interactions: result.list }
+      saveClinicData(next)
+      return next
+    })
+    return id
+  }, [])
+
+  const deleteInteraction = useCallback((id: string) => {
+    setData((prev) => {
+      const next = { ...prev, interactions: prev.interactions.filter((i) => i.id !== id) }
+      saveClinicData(next)
+      return next
+    })
+  }, [])
+
+  const upsertReminder: ClinicContextValue['upsertReminder'] = useCallback((item) => {
+    let id = ''
+    setData((prev) => {
+      const result = upsertInList(prev.reminders, item)
+      id = result.id
+      const next = { ...prev, reminders: result.list }
+      saveClinicData(next)
+      return next
+    })
+    return id
+  }, [])
+
+  const deleteReminder = useCallback((id: string) => {
+    setData((prev) => {
+      const next = { ...prev, reminders: prev.reminders.filter((r) => r.id !== id) }
+      saveClinicData(next)
+      return next
+    })
+  }, [])
+
+  const ensurePatientAccess: ClinicContextValue['ensurePatientAccess'] = useCallback(
+    async ({ patientId, password }) => {
+      const patient = data.patients.find((p) => p.id === patientId)
+      if (!patient) return { ok: false, error: 'Paciente não encontrado.' }
+      if (!patient.email.trim()) return { ok: false, error: 'Paciente sem e-mail cadastrado.' }
+      if (password.trim().length < 6) {
+        return { ok: false, error: 'A senha precisa ter ao menos 6 caracteres.' }
+      }
+
+      const salt = createSalt('paciente')
+      const passwordHash = await hashPassword(password.trim(), salt)
+      const now = new Date().toISOString()
+
+      setData((prev) => {
+        const existing = prev.users.find((u) => u.patientId === patientId || u.email === patient.email)
+        let users: AuthUser[]
+        if (existing) {
+          users = prev.users.map((u) =>
+            u.id === existing.id
+              ? {
+                  ...u,
+                  name: patient.name,
+                  email: patient.email,
+                  role: 'paciente',
+                  patientId,
+                  passwordSalt: salt,
+                  passwordHash,
+                  active: true,
+                }
+              : u,
+          )
+        } else {
+          users = [
+            {
+              id: uuid(),
+              name: patient.name,
+              email: patient.email,
+              role: 'paciente',
+              patientId,
+              passwordSalt: salt,
+              passwordHash,
+              createdAt: now,
+              active: true,
+            },
+            ...prev.users,
+          ]
+        }
+        const next = { ...prev, users }
+        saveClinicData(next)
+        return next
+      })
+
+      return { ok: true, email: patient.email }
+    },
+    [data.patients],
+  )
+
   const resetDemoData = useCallback(() => {
     commit(resetClinicData())
   }, [commit])
@@ -250,6 +450,10 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
       consents: data.consents,
       contracts: data.contracts,
       budgets: data.budgets,
+      users: data.users,
+      leads: data.leads,
+      interactions: data.interactions,
+      reminders: data.reminders,
       getPatient,
       upsertPatient,
       deletePatient,
@@ -261,11 +465,20 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
       deletePhoto,
       upsertConsent,
       deleteConsent,
+      signConsent,
       upsertContract,
       deleteContract,
       upsertBudget,
       deleteBudget,
+      upsertLead,
+      deleteLead,
+      upsertInteraction,
+      deleteInteraction,
+      upsertReminder,
+      deleteReminder,
+      ensurePatientAccess,
       resetDemoData,
+      reload,
     }),
     [
       data,
@@ -280,11 +493,20 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
       deletePhoto,
       upsertConsent,
       deleteConsent,
+      signConsent,
       upsertContract,
       deleteContract,
       upsertBudget,
       deleteBudget,
+      upsertLead,
+      deleteLead,
+      upsertInteraction,
+      deleteInteraction,
+      upsertReminder,
+      deleteReminder,
+      ensurePatientAccess,
       resetDemoData,
+      reload,
     ],
   )
 

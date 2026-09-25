@@ -21,6 +21,7 @@ export const emptyPatientForm = {
   medications: '',
   notes: '',
   status: 'ativo' as PatientStatus,
+  tags: [] as string[],
 }
 
 const statusTone: Record<PatientStatus, 'success' | 'neutral' | 'info'> = {
@@ -234,6 +235,21 @@ export function PatientForm({
         <Textarea
           value={form.medications}
           onChange={(e) => setForm({ ...form, medications: e.target.value })}
+        />
+      </Field>
+      <Field label="Tags (separadas por vírgula)" className="sm:col-span-2">
+        <Input
+          value={form.tags.join(', ')}
+          onChange={(e) =>
+            setForm({
+              ...form,
+              tags: e.target.value
+                .split(',')
+                .map((t) => t.trim())
+                .filter(Boolean),
+            })
+          }
+          placeholder="vip, harmonização, retorno"
         />
       </Field>
       <Field label="Observações" className="sm:col-span-2">

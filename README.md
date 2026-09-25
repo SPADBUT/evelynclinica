@@ -1,15 +1,27 @@
-# Evelyn · Clínica Estética — V1
+# Evelyn · Clínica Estética — V2
 
 Aplicativo de gestão clínica para **Evelyn Preto Silva**, biomédica estética.
 
-A **V1** cobre a operação do dia a dia:
+A **V2** adiciona CRM, autenticação e portal da paciente para assinatura digital de termos.
 
-- Prontuários de pacientes (cadastro + evoluções)
-- Agenda de atendimentos
-- Fotos clínicas de antes e depois
-- Termos de consentimento informado
-- Contratos de planos/pacotes
-- Orçamentos com itens e descontos
+## O que há na V2
+
+- Login com perfis: clínica (admin), assistente e paciente
+- Portal da paciente para ler e assinar termos (assinatura manuscrita + aceite)
+- CRM: pipeline lead → avaliação → tratamento → manutenção
+- Histórico de interações (WhatsApp, e-mail, ligação)
+- Lembretes de retorno e validade de orçamento
+- Tags em pacientes
+- Tudo da V1: prontuários, agenda, fotos, termos, contratos e orçamentos
+
+## Contas demo
+
+| Perfil | E-mail | Senha |
+|---|---|---|
+| Clínica | `evelyn@clinica.com` | `evelyn123` |
+| Assistente | `assistente@clinica.com` | `assistente123` |
+| Paciente (termo pendente) | `juliana.ferreira@email.com` | `paciente123` |
+| Paciente | `ana.mendes@email.com` | `paciente123` |
 
 ## Stack
 
@@ -17,9 +29,9 @@ A **V1** cobre a operação do dia a dia:
 - Vite
 - Tailwind CSS v4
 - React Router
-- Persistência local (`localStorage`) — ideal para prototipar sem backend
+- Persistência local (`localStorage`) com sessão e hash de senha (SHA-256 + salt)
 
-> **LGPD:** nesta V1 os dados ficam apenas no navegador do dispositivo. Em V2 haverá backend seguro, autenticação e armazenamento em nuvem.
+> **LGPD:** dados e sessões ficam neste navegador. A estrutura de auth/assinatura já prepara a migração para backend em nuvem.
 
 ## Como rodar
 
@@ -28,41 +40,34 @@ npm install
 npm run dev
 ```
 
-Abra o endereço indicado no terminal (geralmente `http://localhost:5173`).
+Abra o endereço indicado (geralmente `http://localhost:5173/evelynclinica/`).
 
 ```bash
-npm run build    # build de produção
-npm run preview  # preview do build
+npm run build
+npm run preview
 ```
 
-## Deploy (GitHub Pages — gratuito)
+## Fluxo de assinatura do termo
 
-Não precisa comprar domínio. O app sobe em:
+1. Na área clínica: **Consentimentos → Acesso da paciente** (gera login/senha)
+2. Crie o termo e clique **Enviar p/ assinatura** (status `enviado`)
+3. A paciente entra no login e assina em **Portal → Meus termos**
+
+## Deploy (GitHub Pages)
 
 **https://spadbut.github.io/evelynclinica/**
 
-1. Em **Settings → Pages**, Source = **GitHub Actions**
-2. Se existir **Custom domain**, clique em **Remove** (sem domínio pago o check DNS falha)
-3. Após o merge em `main`, o workflow publica automaticamente
-
-Domínio próprio (`.com.br`) é opcional e pago — ver `DNS.md` só se quiser isso depois.
+Após merge em `main`, o workflow publica automaticamente.
 
 ## Estrutura
 
 ```
-.
-├── src/
-│   ├── components/     # UI + layout
-│   ├── context/        # estado global da clínica
-│   ├── data/           # seed demo
-│   ├── lib/            # storage + formatadores
-│   ├── pages/          # módulos da V1
-│   └── types/          # modelos de dados
-├── ROADMAP.md          # V1 / V2 / V3
-└── package.json
+src/
+├── components/     # UI, layouts clínica/portal, assinatura
+├── context/        # Auth + estado da clínica
+├── data/           # seed demo V2
+├── pages/          # módulos clínicos + portal paciente
+└── types/          # modelos V2
 ```
 
-## Dados demo
-
-Na primeira abertura o app carrega pacientes, agenda, termos, contratos e orçamentos de exemplo.  
-No painel há o botão **Restaurar dados demo**.
+Ver `ROADMAP.md` para V3 (financeiro).
