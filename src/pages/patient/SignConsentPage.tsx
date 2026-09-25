@@ -38,6 +38,7 @@ export function SignConsentPage() {
   const alreadySigned = consent.status === 'assinado'
 
   function handleSign() {
+    if (!consent) return
     setError('')
     const signature = signatureRef.current ?? signatureData
     if (!fullName.trim()) {
