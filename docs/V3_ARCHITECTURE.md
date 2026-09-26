@@ -107,6 +107,8 @@ Entidades de negócio relevantes possuem `clinic_id`.
 
 Mesmo com uma clínica hoje, o modelo nasce multi-clinic.
 
+Além de `clinic_id`, a A1 inclui triggers de integridade same-clinic (migration `…_same_clinic_integrity.sql`) para impedir FKs cross-clinic óbvias (patient, treatment, documents, quotes, batches/usages, secure_links, etc.). Isso **não** substitui RLS (A2).
+
 ---
 
 ## 7. Data layer
@@ -285,9 +287,9 @@ Relatório: encontrados, importados, duplicidades, inválidos, erros, órfãos, 
 
 | Versão | Foco |
 |---|---|
-| V1 | Operação da clínica (local) |
-| V2 | CRM + Auth local + Consentimentos |
-| **V3** | Patient 360 + Clinical CRM + Prontuário (nuvem/RLS) |
+| V1 | Operação da clínica |
+| V2 | CRM + Auth + Consentimentos |
+| **V3** | Patient 360 + Clinical CRM |
 | V4 | Financial Intelligence |
 | V5 | Growth + WhatsApp + Automação + IA |
 

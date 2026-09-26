@@ -50,25 +50,38 @@ clinics
         └── secure_links
 ```
 
+## Integridade same-clinic (A1)
+
+FKs simples não impedem `entity.clinic_id` ≠ `related.clinic_id`.  
+Migration `20260926020700_same_clinic_integrity.sql` adiciona triggers estruturais para:
+
+- `crm_leads.patient_id`, `quotes`/`interactions` patient/lead
+- cadeia clínica: treatment → session → appointment → clinical_record(+version)
+- `documents` / versions / signatures (patient, quote, version ownership)
+- `product_batches.product_id` e `treatment_product_usages` (batch/product)
+- `photos`, `alerts`, `tasks`, `patient_tags`
+- `secure_links` (patient + recurso polimórfico na mesma clínica)
+
+**RLS ainda não está implementado** — esses triggers são preparação estrutural para A2.
+
+## `current_version_id` (FK circular controlada)
+
+`clinical_records.current_version_id` → `clinical_record_versions.id`  
+`documents.current_version_id` → `document_versions.id`
+
+Por que existe: ponteiro estável para a versão “atual” sem varrer `max(version_number)`.
+
+Por que é seguro na criação:
+
+1. A coluna é **nullable** — o header nasce com `current_version_id = null`.
+2. Ordem canônica de insert: **header → version → UPDATE do ponteiro**.
+3. Trigger same-clinic exige que o ponteiro aponte para uma versão **do mesmo** record/document e da mesma clínica.
+
+Não usamos `DEFERRABLE` nem ordem frágil de INSERT único: null + update posterior é o caminho explícito (também documentado em `docs/V2_TO_V3_MAPPING.md`).
+
 ## Como aplicar (local)
 
 Requer [Supabase CLI](https://supabase.com/docs/guides/cli) + Docker:
-
-```bash
-# na raiz do repositório
-npx supabase start          # sobe stack local (se ainda não estiver)
-npx supabase db reset       # aplica migrations do zero
-# ou
-npx supabase migration up
-```
-
-Sem projeto remoto nesta A1 — não há `SUPABASE_URL` / keys no código.
-
-## Validação A1
-
-Migrations aplicadas com sucesso em PostgreSQL 16 local com stub mínimo de `auth.users` (sem Docker/Supabase CLI neste ambiente).
-
-Comandos recomendados com Supabase CLI + Docker:
 
 ```bash
 npx supabase start
@@ -76,3 +89,13 @@ npx supabase db reset
 ```
 
 Sem projeto remoto nesta A1 — não há `SUPABASE_URL` / keys no código.
+
+## Validação A1
+
+**Schema SQL validado em PostgreSQL 16; validação completa do stack Supabase será realizada em A2 com Supabase CLI/Docker.**
+
+Nesta fase:
+
+- migrations aplicadas em PostgreSQL 16 com stub mínimo de `auth.users`
+- smoke de isolamento same-clinic (lead↔patient, usage↔batch, documents, quotes, appointments, clinical_records, secure_links)
+- **não** declarar que “Supabase local foi validado” — Docker/Supabase CLI não foram executados neste ambiente

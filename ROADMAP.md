@@ -1,5 +1,17 @@
 # Roadmap — Evelyn Clínica Estética
 
+Definições oficiais (canônicas):
+
+| Versão | Nome |
+|---|---|
+| V1 | Operação da clínica |
+| V2 | CRM + Auth + Consentimentos |
+| V3 | Patient 360 + Clinical CRM |
+| V4 | Financial Intelligence |
+| V5 | Growth + WhatsApp + Automação + IA |
+
+---
+
 ## V1 — Operação da clínica ✅
 
 Foco: operação do consultório (persistência local).
@@ -45,27 +57,26 @@ Foco: relacionamento, autenticação local e assinatura digital.
 
 Foco: backend real, prontuário longitudinal e CRM clínico/comercial seguro.
 
-| Módulo | Status |
-|---|---|
-| PostgreSQL + migrations versionadas | 🚧 A1 |
-| Multi-tenancy (`clinics` + `clinic_id`) | 🚧 A1 |
-| Auth (equipe) + roles | ⏳ A2 |
-| RLS e isolamento entre clínicas | ⏳ A2 |
-| Data layer (services/repositórios) | ⏳ A3 |
-| Storage privado + fotos | ⏳ A4 |
-| Secure Links (paciente sem senha) | ⏳ A5 |
-| Auditoria runtime | ⏳ A5 |
-| Migração V2 → PostgreSQL | ⏳ A6 |
-| Deploy SPA (Vercel) + deep links | ⏳ A7 |
-| Patient 360 | ⏳ pós-fundação |
-| CRM clínico/comercial (evolução) | ⏳ pós-fundação |
-| Prontuário longitudinal + evoluções versionadas | 🚧 schema A1 / UI depois |
-| Anamneses / documentos versionados | 🚧 schema A1 |
-| Produtos / lotes / rastreabilidade | 🚧 schema A1 |
-| Alertas / recorrência | 🚧 schema A1 / lógica depois |
-| Testes de segurança + regressão | ⏳ A8 |
+Fundação em fases **A1–A8** — detalhe em `docs/V3_ARCHITECTURE.md`.
 
-Fundação em fases **A1–A8** — ver `docs/V3_ARCHITECTURE.md`.
+| Fase / módulo | Status |
+|---|---|
+| A1 — PostgreSQL + migrations + multi-tenancy (`clinics` / `clinic_id`) | 🚧 |
+| A2 — Auth (equipe) + roles + RLS | ⏳ |
+| A3 — Data layer (services/repositórios) | ⏳ |
+| A4 — Storage privado + fotos | ⏳ |
+| A5 — Secure Links + auditoria runtime | ⏳ |
+| A6 — Migração V2 → PostgreSQL | ⏳ |
+| A7 — Deploy SPA (Vercel) + deep links | ⏳ |
+| A8 — Testes de segurança + regressão | ⏳ |
+| Schema: prontuário longitudinal + evoluções versionadas | 🚧 A1 / UI depois |
+| Schema: anamneses / documentos versionados | 🚧 A1 |
+| Schema: produtos / lotes / rastreabilidade | 🚧 A1 |
+| Schema: alertas / recorrência | 🚧 A1 / lógica depois |
+| Patient 360 (produto completo) | ⏳ pós-fundação |
+| CRM clínico/comercial (evolução de produto) | ⏳ pós-fundação |
+
+Escopo funcional da V3 **não** inclui financeiro (isso é V4) nem WhatsApp/IA (isso é V5).
 
 ---
 
@@ -99,5 +110,5 @@ Foco: crescimento e inteligência comercial.
 
 1. **Clínico primeiro** — prontuário e segurança do paciente acima de tudo.
 2. **Elegante e simples** — UI limpa, sem parecer SaaS genérico.
-3. **Evolutivo** — V1 local → V2 CRM/auth → V3 nuvem/prontuário → V4 financeiro → V5 growth.
+3. **Evolutivo** — V1 local → V2 CRM/auth → V3 Patient 360 / Clinical CRM → V4 Financial Intelligence → V5 Growth.
 4. **LGPD by design** — consentimento, minimização, RLS e trilha de auditoria.

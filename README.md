@@ -70,12 +70,23 @@ src/
 └── types/          # modelos V2
 ```
 
-## V3 (fundação)
+## Roadmap (definições oficiais)
 
-A V3 migra a operação para Supabase/PostgreSQL (multi-clínica, Auth, RLS, Storage privado, Secure Links).  
-Nesta etapa (**A1**) há apenas schema/migrations e documentação — a UI V2 permanece inalterada.
+| Versão | Foco |
+|---|---|
+| V1 | Operação da clínica |
+| V2 | CRM + Auth + Consentimentos *(atual na UI)* |
+| **V3** | **Patient 360 + Clinical CRM** |
+| V4 | Financial Intelligence |
+| V5 | Growth + WhatsApp + Automação + IA |
+
+A fundação V3 (fase **A1**) entrega schema/migrations Supabase e documentação. A UI V2 permanece inalterada.
 
 - Arquitetura: `docs/V3_ARCHITECTURE.md`
 - Schema A1: `docs/SCHEMA_A1.md`
 - Mapping V2→V3: `docs/V2_TO_V3_MAPPING.md`
-- Roadmap: `ROADMAP.md`
+- Roadmap completo: `ROADMAP.md`
+
+### Validação A1
+
+Schema SQL validado em PostgreSQL 16; validação completa do stack Supabase será realizada em A2 com Supabase CLI/Docker.

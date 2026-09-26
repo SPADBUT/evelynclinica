@@ -144,15 +144,18 @@ Senhas de pacientes V2 **não** são migradas. Pacientes V3 não terão login/se
 
 ### MedicalRecordEntry → clinical_records + clinical_record_versions
 
-Para cada entry V2:
+Para cada entry V2 (ordem obrigatória por causa do ponteiro `current_version_id` nullable):
 
-1. Inserir `clinical_records` com `status = finalized` (histórico legado tratado como finalizado).
+1. Inserir `clinical_records` com `status = finalized` e `current_version_id = null`.
 2. Inserir `clinical_record_versions` versão `1` com:
    - `procedure_name` ← `procedure`
    - `professional_name` ← `professional`
    - `anamnesis`, `evolution`, `next_steps` ← campos V2
    - `recorded_at` ← `date` (ou `createdAt`)
-3. Atualizar `clinical_records.current_version_id`.
+   - `clinic_id` igual ao do header
+3. Atualizar `clinical_records.current_version_id` para o id da versão criada.
+
+Não inserir header e versão com FK circular preenchida no mesmo INSERT: o ponteiro nasce null e é atualizado depois (ver `docs/SCHEMA_A1.md`).
 
 `productsUsed` (texto livre V2) → campo de resumo na versão; usages estruturados só quando houver parse confiável (**STATUS: FUTURO / NÃO DECIDIDO** no ETL).
 
