@@ -70,4 +70,12 @@ src/
 └── types/          # modelos V2
 ```
 
-Ver `ROADMAP.md` para V3 (financeiro).
+## V3 (fundação)
+
+A V3 migra a operação para Supabase/PostgreSQL (multi-clínica, Auth, RLS, Storage privado, Secure Links).  
+Nesta etapa (**A1**) há apenas schema/migrations e documentação — a UI V2 permanece inalterada.
+
+- Arquitetura: `docs/V3_ARCHITECTURE.md`
+- Schema A1: `docs/SCHEMA_A1.md`
+- Mapping V2→V3: `docs/V2_TO_V3_MAPPING.md`
+- Roadmap: `ROADMAP.md`
