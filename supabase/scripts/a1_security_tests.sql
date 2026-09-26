@@ -272,19 +272,26 @@ begin
   );
 
   -- =========================================================================
-  -- E / F. SECURITY DEFINER + search_path
+  -- E / F. SECURITY DEFINER + empty search_path + EXECUTE grants
   -- =========================================================================
   select pg_get_functiondef('public.current_organization_id()'::regprocedure)
   into fn_def;
   perform pg_temp.record_test(
     'E_current_org_is_security_definer',
     fn_def ilike '%SECURITY DEFINER%',
-    left(fn_def, 200)
+    left(fn_def, 220)
   );
   perform pg_temp.record_test(
-    'F_current_org_search_path_public',
-    fn_def ilike '%search_path%public%',
-    'search_path must be fixed to public'
+    'F_current_org_search_path_empty',
+    (fn_def like '%search_path TO ''''%')
+      and (fn_def not ilike '%search_path TO ''public''%')
+      and (fn_def not ilike '%search_path = public%'),
+    left(fn_def, 220)
+  );
+  perform pg_temp.record_test(
+    'E_current_org_schema_qualified',
+    fn_def ilike '%public.staff_profiles%' and fn_def ilike '%auth.uid()%',
+    'body must schema-qualify relations'
   );
 
   select pg_get_functiondef('public.has_permission(text)'::regprocedure)
@@ -292,12 +299,79 @@ begin
   perform pg_temp.record_test(
     'E_has_permission_is_security_definer',
     fn_def ilike '%SECURITY DEFINER%',
-    left(fn_def, 200)
+    left(fn_def, 220)
   );
   perform pg_temp.record_test(
-    'F_has_permission_search_path_public',
-    fn_def ilike '%search_path%public%',
-    'search_path must be fixed to public'
+    'F_has_permission_search_path_empty',
+    (fn_def like '%search_path TO ''''%')
+      and (fn_def not ilike '%search_path TO ''public''%'),
+    left(fn_def, 220)
+  );
+  perform pg_temp.record_test(
+    'E_has_permission_schema_qualified',
+    fn_def ilike '%public.staff_profiles%'
+      and fn_def ilike '%public.staff_roles%'
+      and fn_def ilike '%public.role_permissions%'
+      and fn_def ilike '%public.permissions%',
+    'body must schema-qualify RBAC joins'
+  );
+
+  select pg_get_functiondef('public.staff_has_role(text)'::regprocedure)
+  into fn_def;
+  perform pg_temp.record_test(
+    'E_staff_has_role_is_security_definer',
+    fn_def ilike '%SECURITY DEFINER%',
+    left(fn_def, 220)
+  );
+  perform pg_temp.record_test(
+    'F_staff_has_role_search_path_empty',
+    (fn_def like '%search_path TO ''''%')
+      and (fn_def not ilike '%search_path TO ''public''%'),
+    left(fn_def, 220)
+  );
+
+  -- EXECUTE grants: authenticated yes; anon/public no
+  perform pg_temp.record_test(
+    'E_execute_authenticated_current_org',
+    has_function_privilege('authenticated', 'public.current_organization_id()', 'execute'),
+    'authenticated must EXECUTE current_organization_id'
+  );
+  perform pg_temp.record_test(
+    'E_execute_authenticated_has_permission',
+    has_function_privilege('authenticated', 'public.has_permission(text)', 'execute'),
+    'authenticated must EXECUTE has_permission'
+  );
+  perform pg_temp.record_test(
+    'E_execute_authenticated_staff_has_role',
+    has_function_privilege('authenticated', 'public.staff_has_role(text)', 'execute'),
+    'authenticated must EXECUTE staff_has_role'
+  );
+  perform pg_temp.record_test(
+    'E_execute_anon_denied_current_org',
+    not has_function_privilege('anon', 'public.current_organization_id()', 'execute'),
+    'anon must not EXECUTE'
+  );
+  perform pg_temp.record_test(
+    'E_execute_anon_denied_has_permission',
+    not has_function_privilege('anon', 'public.has_permission(text)', 'execute'),
+    'anon must not EXECUTE has_permission'
+  );
+  perform pg_temp.record_test(
+    'E_execute_public_denied_current_org',
+    not has_function_privilege('public', 'public.current_organization_id()', 'execute'),
+    'PUBLIC must not EXECUTE'
+  );
+
+  -- Helpers expose only scalar uuid/boolean — not row dumps
+  perform pg_temp.record_test(
+    'E_helpers_return_scalars_only',
+    (select data_type from information_schema.routines
+     where routine_schema = 'public' and routine_name = 'current_organization_id') = 'uuid'
+    and (select data_type from information_schema.routines
+     where routine_schema = 'public' and routine_name = 'has_permission') = 'boolean'
+    and (select data_type from information_schema.routines
+     where routine_schema = 'public' and routine_name = 'staff_has_role') = 'boolean',
+    'helpers must not return tables/rows'
   );
 
   perform pg_temp.as_anon();
@@ -315,7 +389,22 @@ begin
   );
 
   -- =========================================================================
-  -- RBAC matrix smoke
+  -- Patients: operational only — no clinical columns
+  -- =========================================================================
+  perform pg_temp.record_test(
+    'PATIENTS_no_clinical_columns',
+    not exists (
+      select 1
+      from information_schema.columns
+      where table_schema = 'public'
+        and table_name = 'patients'
+        and column_name in ('allergies', 'medications', 'notes')
+    ),
+    'patients must not store allergies/medications/notes'
+  );
+
+  -- =========================================================================
+  -- RBAC matrix smoke + assistant has ZERO clinical capability
   -- =========================================================================
   perform pg_temp.as_user(assistant_a);
   perform pg_temp.record_test(
@@ -332,6 +421,20 @@ begin
     'RBAC_assistant_no_clinical_read',
     public.has_permission('clinical.read') = false,
     'assistant least privilege: no clinical.read'
+  );
+  perform pg_temp.record_test(
+    'RBAC_assistant_no_clinical_capability',
+    public.has_permission('clinical.read') = false
+      and public.has_permission('clinical.write') = false
+      and not exists (
+        select 1
+        from public.staff_roles sr
+        join public.role_permissions rp on rp.role_id = sr.role_id
+        join public.permissions p on p.id = rp.permission_id
+        where sr.staff_id = assistant_a
+          and p.code like 'clinical.%'
+      ),
+    'assistant must have zero clinical.* permissions'
   );
 
   perform pg_temp.as_user(clinician_a);

@@ -27,8 +27,15 @@ Checkpoint **A1** da Fase A — foundation mínima + RLS.
 | `staff_roles` | Atribuição de roles ao staff |
 | `permissions` | Capacidades `domain.action` |
 | `role_permissions` | Matriz role → permission |
-| `patients` | Cadastro de pacientes (sem Auth) |
+| `patients` | Cadastro **operacional/demográfico** (sem Auth, sem campos clínicos) |
 | `audit_logs` | Trilha append-only |
+
+### `patients` — colunas (somente demográficas)
+
+`id`, `organization_id`, `full_name`, `email`, `phone`, `cpf`, `birth_date`, `gender`, `address`, `status`, `deleted_at`, `created_at`, `updated_at`
+
+**Não** inclui `allergies`, `medications`, `notes` nem outros dados clínicos.  
+Conteúdo clínico futuro → tabelas protegidas por `clinical.read` / `clinical.write`.
 
 ## Relação de identidade
 
@@ -44,9 +51,12 @@ auth.users → staff_profiles → staff_roles → roles
 
 ```sql
 SECURITY DEFINER
-SET search_path = public
--- return staff_profiles.organization_id where id = auth.uid() and is_active
+SET search_path = ''
+-- all relations schema-qualified (public.staff_profiles, auth.uid(), …)
+-- return organization_id where id = auth.uid() and is_active
 ```
+
+Mesmo padrão em `has_permission()` e `staff_has_role()`.
 
 - Fonte de verdade do tenant para RLS.
 - Cliente **não** define `organization_id` confiável: policies exigem `organization_id = current_organization_id()`.
@@ -67,7 +77,8 @@ SET search_path = public
 | audit.read | ✓ | ✓ | |
 | audit.write | ✓ | ✓ | ✓ |
 
-`clinical.*` está preparado para tabelas clínicas futuras. Em A1 só existe `patients` (operacional).
+- `patients.*` = cadastro operacional (assistant permitido).
+- `clinical.*` = registros clínicos futuros (assistant **sem** acesso). Em A1 não há tabela clínica ainda; a ausência de `clinical.*` no assistant é validada nos testes.
 
 ## Matriz RLS (resumo)
 
@@ -82,14 +93,34 @@ SET search_path = public
 
 `service_role` tem ALL + BYPASSRLS — **somente servidor**, nunca no frontend.
 
+## Hardening futuro (A4 — não bloqueia A1)
+
+`audit_logs` hoje permite INSERT autenticado com `audit.write`. Revisar em A4:
+
+- evitar INSERT arbitrário de eventos pelo frontend;
+- preferir triggers / RPCs controladas para eventos confiáveis.
+
+## Versão do PostgreSQL
+
+- `supabase/config.toml` → `db.major_version = 15` (**não alterado** até confirmação remota).
+- Harness local A1 validou em **PostgreSQL 16**.
+- Antes de `supabase db push` no projeto `evelyn-v3`, obter a versão real:
+
+```sql
+SHOW server_version;
+-- ou: SELECT version();
+```
+
+SQL da foundation evita features exclusivas de uma major; alinhar `major_version` só após a leitura remota.
+
 ## Validação
 
 ```bash
 ./supabase/scripts/run_a1_validation.sh
 ```
 
-Cobre: cross-org IDOR, anon, spoof de `organization_id`, spoof de role via `user_metadata`, SECURITY DEFINER/`search_path`, RBAC assistant vs clinician, bypass do `service_role`.
+Cobre: cross-org IDOR, anon, spoof de `organization_id`, spoof de role via `user_metadata`, SECURITY DEFINER + `search_path` vazio, assistant sem capacidades clínicas, ausência de colunas clínicas em `patients`, bypass do `service_role`.
 
 ## Fora de escopo A1
 
-Patient 360, clinical records, treatments, documents, CRM, secure links, Storage, Edge Functions, Auth runtime frontend (A2), Vercel (A3).
+Patient 360, clinical records, treatments, documents, CRM, secure links, Storage, Edge Functions, Auth runtime frontend (A2), Vercel (A3), redesign de `audit_logs` (A4).

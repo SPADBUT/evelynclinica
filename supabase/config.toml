@@ -16,7 +16,10 @@ max_rows = 1000
 [db]
 port = 54322
 shadow_port = 54320
-# Align with Supabase project defaults; validated against PostgreSQL 16 in CI/local harness
+# Do NOT change until confirmed against remote evelyn-v3:
+#   SELECT version();  -- or: SHOW server_version;
+# Local A1 harness validated on PostgreSQL 16; this local CLI default remains 15
+# until the remote major is verified. SQL is written to be compatible with both.
 major_version = 15
 
 [db.pooler]

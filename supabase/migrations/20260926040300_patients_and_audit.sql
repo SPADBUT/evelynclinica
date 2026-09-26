@@ -6,6 +6,9 @@ create type public.patient_status as enum (
   'in_treatment'
 );
 
+-- Operational/demographic registry only.
+-- Clinical fields (allergies, medications, clinical notes, etc.) belong in future
+-- tables gated by clinical.read / clinical.write — NOT on patients.
 create table public.patients (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations (id) on delete restrict,
@@ -16,9 +19,6 @@ create table public.patients (
   birth_date date,
   gender text,
   address text,
-  allergies text,
-  medications text,
-  notes text,
   status public.patient_status not null default 'active',
   deleted_at timestamptz,
   created_at timestamptz not null default timezone('utc', now()),
@@ -27,7 +27,7 @@ create table public.patients (
 );
 
 comment on table public.patients is
-  'Patient registry. Soft-deletable via deleted_at. No patient Auth accounts in V3.';
+  'Operational patient registry (demographics only). Soft-deletable via deleted_at. No Auth accounts. No clinical fields — those use clinical.* permissions on future tables.';
 
 create trigger patients_set_updated_at
   before update on public.patients
@@ -61,7 +61,7 @@ create table public.audit_logs (
 );
 
 comment on table public.audit_logs is
-  'Append-oriented audit trail. Do not store unnecessary clinical content in metadata.';
+  'Append-oriented audit trail. Do not store unnecessary clinical content in metadata. A4 hardening: prefer triggers/RPCs over arbitrary frontend INSERTs.';
 
 create index audit_logs_organization_id_idx on public.audit_logs (organization_id);
 create index audit_logs_occurred_at_idx on public.audit_logs (occurred_at desc);
