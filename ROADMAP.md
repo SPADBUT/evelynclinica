@@ -61,8 +61,8 @@ Fundação em fases **A1–A8** — detalhe em `docs/V3_ARCHITECTURE.md`.
 
 | Fase / módulo | Status |
 |---|---|
-| A1 — PostgreSQL + migrations + multi-tenancy (`clinics` / `clinic_id`) | 🚧 |
-| A2 — Auth (equipe) + roles + RLS | ⏳ |
+| A1 — PostgreSQL + migrations + multi-tenancy (`clinics` / `clinic_id`) | ✅ |
+| A2 — Auth (equipe) + roles + RLS | 🚧 |
 | A3 — Data layer (services/repositórios) | ⏳ |
 | A4 — Storage privado + fotos | ⏳ |
 | A5 — Secure Links + auditoria runtime | ⏳ |

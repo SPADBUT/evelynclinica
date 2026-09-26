@@ -13,6 +13,7 @@ import { useClinic } from '../context/ClinicContext'
 import { formatShortDate, todayISO } from '../lib/format'
 import { Badge, Card, PageHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
+import { SupabaseSmokePanel } from '../components/SupabaseSmokePanel'
 
 const statusTone = {
   agendado: 'info',
@@ -59,13 +60,15 @@ export function DashboardPage() {
     <div>
       <PageHeader
         title={`Bom atendimento, ${user?.name?.split(' ')[0] ?? 'Evelyn'}`}
-        subtitle="V2 — CRM, autenticação e assinatura digital de termos."
+        subtitle="V2 UI · fundação A2 (Auth + RLS) quando Supabase estiver configurado."
         actions={
           <Button variant="secondary" size="sm" onClick={() => resetDemoData()}>
             Restaurar dados demo
           </Button>
         }
       />
+
+      <SupabaseSmokePanel />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {stats.map((stat) => (

@@ -1,19 +1,27 @@
 import { useState, type FormEvent } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { Button } from '../components/ui/Button'
 import { Field, Input } from '../components/ui/Field'
 
 export function LoginPage() {
-  const { user, login } = useAuth()
+  const { user, login, loading: authLoading, supabaseReady, isPatient } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-cream text-sm text-muted">
+        Carregando sessão…
+      </div>
+    )
+  }
+
   if (user) {
-    return <Navigate to={user.role === 'paciente' ? '/portal' : '/'} replace />
+    return <Navigate to={isPatient ? '/portal' : '/'} replace />
   }
 
   async function onSubmit(e: FormEvent) {
@@ -41,9 +49,13 @@ export function LoginPage() {
       <div className="relative mx-auto flex min-h-screen max-w-lg flex-col justify-center px-4 py-12">
         <div className="mb-8 text-center animate-[fadeUp_0.6s_ease-out]">
           <p className="font-display text-5xl text-plum md:text-6xl">Evelyn</p>
-          <p className="mt-2 text-xs uppercase tracking-[0.25em] text-mauve">Clínica Estética · V2</p>
+          <p className="mt-2 text-xs uppercase tracking-[0.25em] text-mauve">
+            Clínica Estética · {supabaseReady ? 'V3 Auth' : 'V2'}
+          </p>
           <p className="mt-4 text-sm text-muted">
-            Acesse com seu login para a área clínica ou para assinar termos.
+            {supabaseReady
+              ? 'Acesse com a conta da equipe (e-mail e senha).'
+              : 'Acesse com seu login para a área clínica ou para assinar termos.'}
           </p>
         </div>
 
@@ -54,7 +66,7 @@ export function LoginPage() {
           <Field label="E-mail">
             <Input
               type="email"
-              autoComplete="off"
+              autoComplete="username"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -64,7 +76,7 @@ export function LoginPage() {
           <Field label="Senha">
             <Input
               type="password"
-              autoComplete="off"
+              autoComplete="current-password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -75,22 +87,41 @@ export function LoginPage() {
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? 'Entrando…' : 'Entrar'}
           </Button>
+          {supabaseReady ? (
+            <p className="text-center text-xs text-muted">
+              <Link to="/recuperar-senha" className="text-plum underline-offset-2 hover:underline">
+                Esqueci minha senha
+              </Link>
+            </p>
+          ) : null}
         </form>
 
         <div className="mt-6 animate-[fadeUp_0.85s_ease-out] rounded-2xl border border-dashed border-border bg-white/50 p-4 text-xs text-muted">
-          <p className="font-medium text-ink">Contas demo</p>
-          <ul className="mt-2 space-y-1">
-            <li>
-              Clínica: <code>evelyn@clinica.com</code> / <code>evelyn123</code>
-            </li>
-            <li>
-              Assistente: <code>assistente@clinica.com</code> / <code>assistente123</code>
-            </li>
-            <li>
-              Paciente (termo pendente): <code>juliana.ferreira@email.com</code> /{' '}
-              <code>paciente123</code>
-            </li>
-          </ul>
+          {supabaseReady ? (
+            <>
+              <p className="font-medium text-ink">Supabase Auth ativo</p>
+              <p className="mt-2">
+                Use as contas de equipe criadas no projeto Supabase. O portal do paciente por login
+                local permanece apenas como legado V2 até Secure Links (A5).
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="font-medium text-ink">Contas demo (modo local)</p>
+              <ul className="mt-2 space-y-1">
+                <li>
+                  Clínica: <code>evelyn@clinica.com</code> / <code>evelyn123</code>
+                </li>
+                <li>
+                  Assistente: <code>assistente@clinica.com</code> / <code>assistente123</code>
+                </li>
+                <li>
+                  Paciente (termo pendente): <code>juliana.ferreira@email.com</code> /{' '}
+                  <code>paciente123</code>
+                </li>
+              </ul>
+            </>
+          )}
         </div>
       </div>
     </div>

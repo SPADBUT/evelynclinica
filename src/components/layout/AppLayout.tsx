@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
+import { useClinicScope } from '../../context/ClinicScopeContext'
 import { Button } from '../ui/Button'
 
 const nav = [
@@ -30,7 +31,8 @@ const nav = [
 
 export function AppLayout() {
   const [open, setOpen] = useState(false)
-  const { user, logout } = useAuth()
+  const { user, logout, authMode, supabaseReady } = useAuth()
+  const { currentClinic, role, memberships, setCurrentClinicId, currentClinicId } = useClinicScope()
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
@@ -78,10 +80,36 @@ export function AppLayout() {
 
           <div className="border-t border-white/10 px-5 py-4 text-xs text-blush/80">
             <p className="flex items-center gap-2">
-              <FileText size={14} /> V2 · CRM & assinatura
+              <FileText size={14} />{' '}
+              {supabaseReady && authMode === 'supabase' ? 'A2 · Auth + RLS' : 'V2 · CRM & assinatura'}
             </p>
             <p className="mt-2 text-cream/90">{user?.name}</p>
-            <p className="mt-0.5 capitalize">{user?.role}</p>
+            {supabaseReady && authMode === 'supabase' ? (
+              <>
+                <p className="mt-0.5 capitalize text-cream/80">{role ?? 'sem role'}</p>
+                {currentClinic ? (
+                  <p className="mt-1 truncate text-blush/90" title={currentClinic.name}>
+                    {currentClinic.name}
+                  </p>
+                ) : null}
+                {memberships.length > 1 ? (
+                  <select
+                    className="mt-2 w-full rounded-lg border border-white/20 bg-white/10 px-2 py-1 text-cream"
+                    value={currentClinicId ?? ''}
+                    onChange={(e) => setCurrentClinicId(e.target.value)}
+                    aria-label="Selecionar clínica"
+                  >
+                    {memberships.map((m) => (
+                      <option key={m.id} value={m.clinic_id} className="text-ink">
+                        {m.clinic.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
+              </>
+            ) : (
+              <p className="mt-0.5 capitalize">{user?.role}</p>
+            )}
             <Button
               variant="ghost"
               size="sm"
