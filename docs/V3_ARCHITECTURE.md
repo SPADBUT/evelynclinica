@@ -1,8 +1,25 @@
 # V3 Architecture — Evelyn Clínica Estética
 
+> **Atualização Fase A (canônica):** multi-tenancy = `organizations` / `organization_id`; identidade = `staff_profiles` + `staff_roles` + `roles` + `permissions`.  
+> Schema detalhado: [`SCHEMA_FOUNDATION_A1.md`](./SCHEMA_FOUNDATION_A1.md).  
+> O modelo `clinics` / `profiles` / `clinic_memberships` deste documento (seções históricas) está **superseded** — ver `supabase/legacy/a1_clinics_superseded/` e [`PR6_SUPERSEDED.md`](./PR6_SUPERSEDED.md).
+
 Documento canônico da fundação V3.  
 Fonte: escopo da Fase A (fundação) e decisões arquiteturais fechadas.  
 Não inventa funcionalidades além do definido.
+
+---
+
+## 0. Checkpoints oficiais da Fase A (vigentes)
+
+| Checkpoint | Escopo |
+|---|---|
+| **A1** | Schema + migrations + RLS (8 tabelas) — *esta entrega* |
+| **A2** | Auth staff + RBAC runtime |
+| **A3** | Frontend Supabase + Vercel (`base /`) |
+| **A4** | Hardening + docs raiz + testes |
+
+V2 permanece em GitHub Pages (`base /evelynclinica/`) com localStorage. V3 em Vercel usa Supabase Auth.
 
 ---
 

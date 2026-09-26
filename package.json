@@ -9,7 +9,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "db:validate:a1": "./supabase/scripts/run_a1_validation.sh"
   },
   "dependencies": {
     "date-fns": "^4.4.0",

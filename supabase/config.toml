@@ -1,9 +1,10 @@
 # Evelyn Clínica Estética — Supabase local (V3 foundation)
-# A1: schema/migrations only. No remote project credentials in-repo.
-# Docs: https://supabase.com/docs/guides/cli/config
+# Canonical A1: organizations / staff_profiles / RBAC / patients / audit_logs
+# No remote credentials in-repo. Docs: docs/SCHEMA_FOUNDATION_A1.md
+# https://supabase.com/docs/guides/cli/config
 
 [project]
-id = "evelynclinica-local"
+id = "evelyn-v3-local"
 
 [api]
 enabled = true
@@ -15,6 +16,7 @@ max_rows = 1000
 [db]
 port = 54322
 shadow_port = 54320
+# Align with Supabase project defaults; validated against PostgreSQL 16 in CI/local harness
 major_version = 15
 
 [db.pooler]
