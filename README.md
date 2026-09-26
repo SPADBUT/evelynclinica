@@ -80,13 +80,30 @@ src/
 | V4 | Financial Intelligence |
 | V5 | Growth + WhatsApp + Automação + IA |
 
-A fundação V3 (fase **A1**) entrega schema/migrations Supabase e documentação. A UI V2 permanece inalterada.
+Fundação V3:
+
+- **A1** — schema/migrations Supabase ✅
+- **A2** — Auth + RLS + Data Layer (em revisão) — ver `docs/A2_AUTH_RLS.md`
+
+A UI operacional V2 permanece (localStorage). Com `VITE_SUPABASE_*` configurado, a equipe usa Supabase Auth + memberships + RLS.
+
+```bash
+cp .env.example .env.local
+# preencha URL + publishable/anon key
+npm run dev
+```
+
+Stack local (requer Docker):
+
+```bash
+npm run db:start
+npm run db:reset
+npm run db:types
+npm run db:test:rls
+```
 
 - Arquitetura: `docs/V3_ARCHITECTURE.md`
 - Schema A1: `docs/SCHEMA_A1.md`
+- Auth/RLS A2: `docs/A2_AUTH_RLS.md`
 - Mapping V2→V3: `docs/V2_TO_V3_MAPPING.md`
 - Roadmap completo: `ROADMAP.md`
-
-### Validação A1
-
-Schema SQL validado em PostgreSQL 16; validação completa do stack Supabase será realizada em A2 com Supabase CLI/Docker.
