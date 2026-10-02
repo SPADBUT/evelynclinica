@@ -31,6 +31,8 @@ jobs:
         run: npm ci
 
       - name: Build
+        env:
+          VITE_BASE_PATH: /evelynclinica/
         run: npm run build
 
       - name: SPA fallback for GitHub Pages
