@@ -18,11 +18,14 @@ import { PatientConsentsPage } from './pages/patient/PatientConsentsPage'
 import { SignConsentPage } from './pages/patient/SignConsentPage'
 import { PatientContractsPage } from './pages/patient/PatientContractsPage'
 
+/** Mirrors Vite `base` (from VITE_BASE_PATH). Root `/` → no basename. */
+const routerBasename = import.meta.env.BASE_URL.replace(/\/$/, '') || undefined
+
 export default function App() {
   return (
     <AuthProvider>
       <ClinicProvider>
-        <BrowserRouter basename="/evelynclinica">
+        <BrowserRouter basename={routerBasename}>
           <Routes>
             <Route path="login" element={<LoginPage />} />
 
