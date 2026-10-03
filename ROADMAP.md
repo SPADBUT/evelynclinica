@@ -57,24 +57,32 @@ Foco: relacionamento, autenticação local e assinatura digital.
 
 Foco: backend real, prontuário longitudinal e CRM clínico/comercial seguro.
 
-Fundação em fases **A1–A8** — detalhe em `docs/V3_ARCHITECTURE.md`.
+**Checkpoints oficiais da Fase A** (substituem a numeração A1–A8 anterior):
 
-| Fase / módulo | Status |
+| Checkpoint | Escopo | Status |
+|---|---|---|
+| **A1** | Schema canônico (`organizations`…) + migrations + RLS | 🚧 |
+| **A2** | Auth staff (Supabase) + RBAC runtime | ⏳ |
+| **A3** | Frontend Supabase + Vercel (`base /`, SPA rewrite) | ⏳ |
+| **A4** | Hardening + testes + docs raiz | ⏳ |
+
+Schema canônico: `docs/SCHEMA_FOUNDATION_A1.md`.  
+Modelo legado `clinics`/`profiles`: `supabase/legacy/a1_clinics_superseded/` (não aplicável).  
+PR #6 (Auth sobre clinics): **superseded** — `docs/PR6_SUPERSEDED.md`.
+
+| Módulo posterior (fora da foundation mínima A1) | Status |
 |---|---|
-| A1 — PostgreSQL + migrations + multi-tenancy (`clinics` / `clinic_id`) | 🚧 |
-| A2 — Auth (equipe) + roles + RLS | ⏳ |
-| A3 — Data layer (services/repositórios) | ⏳ |
-| A4 — Storage privado + fotos | ⏳ |
-| A5 — Secure Links + auditoria runtime | ⏳ |
-| A6 — Migração V2 → PostgreSQL | ⏳ |
-| A7 — Deploy SPA (Vercel) + deep links | ⏳ |
-| A8 — Testes de segurança + regressão | ⏳ |
-| Schema: prontuário longitudinal + evoluções versionadas | 🚧 A1 / UI depois |
-| Schema: anamneses / documentos versionados | 🚧 A1 |
-| Schema: produtos / lotes / rastreabilidade | 🚧 A1 |
-| Schema: alertas / recorrência | 🚧 A1 / lógica depois |
+| Clinical records / treatments / products / photos / documents | ⏳ pós-A1 |
+| Secure Links + Storage + Edge Functions | ⏳ pós-foundation |
 | Patient 360 (produto completo) | ⏳ pós-fundação |
-| CRM clínico/comercial (evolução de produto) | ⏳ pós-fundação |
+| CRM clínico/comercial (evolução) | ⏳ pós-fundação |
+
+Deploy:
+
+| Target | Papel |
+|---|---|
+| Vercel (`evelynclinica.vercel.app`) | V3 produção — Supabase Auth |
+| GitHub Pages (`/evelynclinica/`) | Demo V2 — localStorage (não migrar nesta fase) |
 
 Escopo funcional da V3 **não** inclui financeiro (isso é V4) nem WhatsApp/IA (isso é V5).
 

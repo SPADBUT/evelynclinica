@@ -1,7 +1,11 @@
-# Mapping V2 → V3 (dados)
+# Mapping V2 → V3 (dados) — referência histórica
 
-Documento de mapeamento para a migração futura (Fase **A6**).  
-**A1 não executa migração de dados.**
+> **Nota:** o destino de colunas abaixo ainda cita nomes do schema legado (`clinics`, `clinic_id`, `profiles`, `clinic_memberships`) da primeira A1.  
+> O **schema canônico** atual usa `organizations` / `organization_id` / `staff_profiles` / `staff_roles`.  
+> Ver `docs/SCHEMA_FOUNDATION_A1.md`. A migração de dados (ETL) será refeita nas fases posteriores alinhada ao canônico.
+
+Documento de mapeamento para a migração futura.  
+**A1 canônico não executa migração de dados.**
 
 Senhas de pacientes V2 **não** são migradas. Pacientes V3 não terão login/senha.
 

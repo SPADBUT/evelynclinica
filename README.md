@@ -75,18 +75,25 @@ src/
 | Versão | Foco |
 |---|---|
 | V1 | Operação da clínica |
-| V2 | CRM + Auth + Consentimentos *(atual na UI)* |
-| **V3** | **Patient 360 + Clinical CRM** |
+| V2 | CRM + Auth + Consentimentos *(atual na UI / GitHub Pages)* |
+| **V3** | **Patient 360 + Clinical CRM** *(Vercel + Supabase)* |
 | V4 | Financial Intelligence |
 | V5 | Growth + WhatsApp + Automação + IA |
 
-A fundação V3 (fase **A1**) entrega schema/migrations Supabase e documentação. A UI V2 permanece inalterada.
+### Fundação V3 — Checkpoint A1 (canônico)
 
+Schema mínimo + RLS em `organizations` / `staff_*` / `permissions` / `patients` / `audit_logs`.
+
+- Schema canônico: `docs/SCHEMA_FOUNDATION_A1.md`
 - Arquitetura: `docs/V3_ARCHITECTURE.md`
-- Schema A1: `docs/SCHEMA_A1.md`
-- Mapping V2→V3: `docs/V2_TO_V3_MAPPING.md`
-- Roadmap completo: `ROADMAP.md`
+- Mapping V2→V3 (histórico): `docs/V2_TO_V3_MAPPING.md`
+- Schema legado clinics (não aplicável): `docs/SCHEMA_A1.md` + `supabase/legacy/`
+- Roadmap: `ROADMAP.md`
 
-### Validação A1
+Validação A1:
 
-Schema SQL validado em PostgreSQL 16; validação completa do stack Supabase será realizada em A2 com Supabase CLI/Docker.
+```bash
+./supabase/scripts/run_a1_validation.sh
+```
+
+UI V2 permanece inalterada nesta fase. Auth Supabase = A2. Vercel = A3.

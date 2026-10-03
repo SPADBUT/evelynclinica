@@ -9,7 +9,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "db:validate:a1": "./supabase/scripts/run_a1_validation.sh"
   },
   "dependencies": {
     "date-fns": "^4.4.0",
@@ -27,6 +28,7 @@
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^6.1.1",
     "oxlint": "^1.81.0",
+    "supabase": "^2.118.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.2",
     "vite": "^8.3.0"
