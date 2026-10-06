@@ -7,11 +7,16 @@ const root = createRoot(document.getElementById('root')!)
 
 async function renderApp() {
   if (import.meta.env.VITE_SUPABASE_AUTH_ENABLED === 'true') {
-    const { SupabaseAuthProvider } = await import('./context/SupabaseAuthContext.tsx')
+    const [{ SupabaseAuthProvider }, { V3TenantProvider }] = await Promise.all([
+      import('./context/SupabaseAuthContext.tsx'),
+      import('./context/V3TenantContext.tsx'),
+    ])
     root.render(
       <StrictMode>
         <SupabaseAuthProvider>
-          <App />
+          <V3TenantProvider>
+            <App />
+          </V3TenantProvider>
         </SupabaseAuthProvider>
       </StrictMode>,
     )

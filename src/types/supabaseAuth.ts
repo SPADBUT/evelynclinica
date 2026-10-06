@@ -29,19 +29,12 @@ export interface SupabaseClinicMembership {
   isActive: true
 }
 
-/** UI session for the parallel Supabase Auth path. Not the V2 SessionUser. */
+/** Auth session only. Profile, clinic, and role live in the V3 tenant context. */
 export interface SupabaseAuthState {
   enabled: boolean
   configured: boolean
   loading: boolean
   session: Session | null
   user: User | null
-  profile: SupabaseStaffProfile | null
-  memberships: SupabaseClinicMembership[]
-  /**
-   * Clinic chosen for the current screen.
-   * This value is not an authorization mechanism. RLS remains authoritative.
-   */
-  activeClinicId: string | null
   error: SupabaseAuthError | null
 }

@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SupabaseAuthProvider } from '../src/context/SupabaseAuthContext'
+import { V3TenantProvider } from '../src/context/V3TenantContext'
 import { resetSupabaseClientForTests } from '../src/lib/supabase'
 
 vi.mock('@supabase/supabase-js', () => ({
@@ -21,6 +22,42 @@ const db = vi.hoisted(() => ({
   profile: null as unknown,
   memberships: [] as unknown[],
 }))
+
+function clinicResult() {
+  let clinicId = ''
+  const builder = {
+    select: () => builder,
+    eq: (column: string, value: string) => {
+      if (column === 'id') clinicId = value
+      return builder
+    },
+    insert: () => {
+      throw new Error('provisioning is not allowed')
+    },
+    upsert: () => {
+      throw new Error('provisioning is not allowed')
+    },
+    update: () => {
+      throw new Error('provisioning is not allowed')
+    },
+    delete: () => {
+      throw new Error('provisioning is not allowed')
+    },
+    maybeSingle: () =>
+      Promise.resolve({
+        data: clinicId
+          ? {
+              id: clinicId,
+              name: `Clinic ${clinicId}`,
+              slug: clinicId,
+              timezone: 'America/Sao_Paulo',
+            }
+          : null,
+        error: null,
+      }),
+  }
+  return builder
+}
 
 function queryResult(data: unknown) {
   const response = { data, error: null }
@@ -71,6 +108,7 @@ function installClient() {
   const from = vi.fn((table: string) => {
     if (table === 'profiles') return queryResult(db.profile)
     if (table === 'clinic_memberships') return queryResult(db.memberships)
+    if (table === 'clinics') return clinicResult()
     throw new Error(`unexpected table ${table}`)
   })
   vi.mocked(createClient).mockReturnValue({ auth, from } as unknown as SupabaseClient)
@@ -98,7 +136,9 @@ let App: typeof import('../src/App').default
 function renderApp() {
   return render(
     <SupabaseAuthProvider>
-      <App />
+      <V3TenantProvider>
+        <App />
+      </V3TenantProvider>
     </SupabaseAuthProvider>,
   )
 }

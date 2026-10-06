@@ -13,16 +13,10 @@ import { isSupabaseAuthEnabled, readSupabaseBrowserConfig } from '../lib/supabas
 import { getSupabaseClient } from '../lib/supabase'
 import { SupabaseAuthError } from '../lib/supabaseAuthError'
 import {
-  loadStaffAccess,
-  resolveActiveClinic,
   signInWithPassword as requestSignIn,
   signOut as requestSignOut,
 } from '../services/supabaseAuthService'
-import type {
-  SupabaseAuthState,
-  SupabaseClinicMembership,
-  SupabaseStaffProfile,
-} from '../types/supabaseAuth'
+import type { SupabaseAuthState } from '../types/supabaseAuth'
 
 export interface SupabaseAuthContextValue extends SupabaseAuthState {
   signInWithPassword: (
@@ -30,7 +24,6 @@ export interface SupabaseAuthContextValue extends SupabaseAuthState {
     password: string,
   ) => Promise<{ ok: true; userId: string } | { ok: false; error: SupabaseAuthError }>
   signOut: () => Promise<{ ok: true } | { ok: false; error: SupabaseAuthError }>
-  selectActiveClinic: (clinicId: string) => void
 }
 
 const SupabaseAuthContext = createContext<SupabaseAuthContextValue | null>(null)
@@ -41,10 +34,6 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [user, setUser] = useState<User | null>(null)
   const [sessionReady, setSessionReady] = useState(!configured)
-  const [profile, setProfile] = useState<SupabaseStaffProfile | null>(null)
-  const [memberships, setMemberships] = useState<SupabaseClinicMembership[]>([])
-  const [selectedClinicId, setSelectedClinicId] = useState<string | null>(null)
-  const [staffReady, setStaffReady] = useState(true)
   const [authError, setAuthError] = useState<SupabaseAuthError | null>(() =>
     enabled && !configured
       ? new SupabaseAuthError(
@@ -53,7 +42,6 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
         )
       : null,
   )
-  const [staffError, setStaffError] = useState<SupabaseAuthError | null>(null)
   const userIdRef = useRef<string | null>(null)
 
   useEffect(() => {
@@ -69,15 +57,6 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
       if (userIdRef.current !== nextId) {
         userIdRef.current = nextId
         setUser(nextUser)
-        setSelectedClinicId(null)
-        setStaffError(null)
-        if (nextUser) {
-          setStaffReady(false)
-        } else {
-          setProfile(null)
-          setMemberships([])
-          setStaffReady(true)
-        }
       }
       setAuthError(null)
       setSessionReady(true)
@@ -115,30 +94,6 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     }
   }, [configured])
 
-  const userId = user?.id ?? null
-
-  useEffect(() => {
-    if (!configured || !sessionReady || !userId) return
-    let cancelled = false
-    loadStaffAccess(getSupabaseClient(), userId).then((result) => {
-      if (cancelled) return
-      setProfile(result.profile)
-      setMemberships(result.memberships)
-      setStaffError(result.error)
-      setStaffReady(true)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [configured, sessionReady, userId])
-
-  const resolution = useMemo(() => {
-    if (!userId || !staffReady || staffError) {
-      return { activeClinicId: null, error: null }
-    }
-    return resolveActiveClinic(memberships, selectedClinicId)
-  }, [userId, staffReady, staffError, memberships, selectedClinicId])
-
   const signInWithPassword = useCallback(
     (email: string, password: string) => requestSignIn(email, password),
     [],
@@ -146,48 +101,18 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(() => requestSignOut(), [])
 
-  const selectActiveClinic = useCallback(
-    (clinicId: string) => {
-      setSelectedClinicId((current) =>
-        memberships.some((membership) => membership.clinicId === clinicId) ? clinicId : current,
-      )
-    },
-    [memberships],
-  )
-
   const value = useMemo<SupabaseAuthContextValue>(
     () => ({
       enabled,
       configured,
-      loading: configured && (!sessionReady || (userId !== null && !staffReady)),
+      loading: configured && !sessionReady,
       session,
       user,
-      profile,
-      memberships,
-      activeClinicId: resolution.activeClinicId,
-      error: authError ?? staffError ?? resolution.error,
+      error: authError,
       signInWithPassword,
       signOut,
-      selectActiveClinic,
     }),
-    [
-      enabled,
-      configured,
-      sessionReady,
-      staffReady,
-      userId,
-      session,
-      user,
-      profile,
-      memberships,
-      resolution.activeClinicId,
-      resolution.error,
-      authError,
-      staffError,
-      signInWithPassword,
-      signOut,
-      selectActiveClinic,
-    ],
+    [enabled, configured, sessionReady, session, user, authError, signInWithPassword, signOut],
   )
 
   return <SupabaseAuthContext.Provider value={value}>{children}</SupabaseAuthContext.Provider>

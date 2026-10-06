@@ -57,13 +57,19 @@ describe('V2 auth stays the default path', () => {
     const main = readFileSync('src/main.tsx', 'utf8')
     expect(main).toContain("import.meta.env.VITE_SUPABASE_AUTH_ENABLED === 'true'")
     expect(main).toContain("import('./context/SupabaseAuthContext.tsx')")
+    expect(main).toContain("import('./context/V3TenantContext.tsx')")
     expect(main).not.toMatch(/from '\.\/context\/SupabaseAuthContext/)
+    expect(main).not.toMatch(/from '\.\/context\/V3TenantContext/)
+    expect(main.indexOf("VITE_SUPABASE_AUTH_ENABLED === 'true'")).toBeLessThan(
+      main.indexOf("import('./context/V3TenantContext.tsx')"),
+    )
   })
 
   it('does not import Supabase from the V2 auth and business files', () => {
     for (const file of frozenFiles) {
       const source = readFileSync(file, 'utf8')
       expect(source.toLowerCase(), file).not.toContain('supabase')
+      expect(source, file).not.toContain('V3Tenant')
     }
   })
 
@@ -77,6 +83,7 @@ describe('V2 auth stays the default path', () => {
     }
 
     const login = readFileSync('src/pages/LoginPage.tsx', 'utf8')
+    expect(login).not.toContain('V3Tenant')
     expect(login.slice(login.indexOf('function V2LoginPage')).toLowerCase()).not.toContain('supabase')
 
     const guards = readFileSync('src/components/RequireAuth.tsx', 'utf8')

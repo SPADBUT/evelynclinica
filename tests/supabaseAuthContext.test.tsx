@@ -97,16 +97,8 @@ function Probe() {
       <p data-testid="configured">{String(state.configured)}</p>
       <p data-testid="loading">{String(state.loading)}</p>
       <p data-testid="user">{state.user?.id ?? ''}</p>
-      <p data-testid="clinic">{state.activeClinicId ?? ''}</p>
       <p data-testid="error">{state.error?.code ?? ''}</p>
-      <p data-testid="memberships">{state.memberships.length}</p>
       <p data-testid="signin-result">{signInCode}</p>
-      <button type="button" onClick={() => state.selectActiveClinic('clinic-b')}>
-        select
-      </button>
-      <button type="button" onClick={() => state.selectActiveClinic('clinic-other')}>
-        select-other
-      </button>
       <button
         type="button"
         onClick={() => {
@@ -190,25 +182,13 @@ describe('SupabaseAuthProvider', () => {
     expect(auth.onAuthStateChange).toHaveBeenCalledTimes(1)
   })
 
-  it('loads one clinic from the session without calling the database inside the listener', async () => {
+  it('does not query clinic data from the auth session', async () => {
     vi.stubEnv('VITE_SUPABASE_AUTH_ENABLED', 'true')
     vi.stubEnv('VITE_SUPABASE_URL', 'https://example.supabase.co')
     vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'anon-key')
     const { from } = installClient()
-    from.mockImplementation((table: string) => {
-      if (harness.insideListener) throw new Error('database call inside auth listener')
-      if (table === 'profiles') {
-        return queryResult({ id: 'user-1', full_name: 'Evelyn', email: 'evelyn@clinica.com' })
-      }
-      return queryResult([
-        {
-          id: 'membership-a',
-          clinic_id: 'clinic-a',
-          user_id: 'user-1',
-          role: 'professional',
-          is_active: true,
-        },
-      ])
+    from.mockImplementation(() => {
+      throw new Error('auth provider queried the database')
     })
     auth.getSession.mockResolvedValue({ data: { session }, error: null })
 
@@ -218,38 +198,11 @@ describe('SupabaseAuthProvider', () => {
       </SupabaseAuthProvider>,
     )
 
-    await waitFor(() => expect(screen.getByTestId('clinic').textContent).toBe('clinic-a'))
+    await waitFor(() => expect(screen.getByTestId('user').textContent).toBe('user-1'))
     expect(screen.getByTestId('error').textContent).toBe('')
-    expect(from).toHaveBeenCalledWith('profiles')
-    expect(from).toHaveBeenCalledWith('clinic_memberships')
-
     harness.listener?.('TOKEN_REFRESHED', session)
     await new Promise((resolve) => setTimeout(resolve, 30))
-    expect(from.mock.calls.filter((call) => call[0] === 'profiles')).toHaveLength(1)
-  })
-
-  it('requires a local clinic choice when several memberships are active', async () => {
-    vi.stubEnv('VITE_SUPABASE_AUTH_ENABLED', 'true')
-    vi.stubEnv('VITE_SUPABASE_URL', 'https://example.supabase.co')
-    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'anon-key')
-    auth.getSession.mockResolvedValue({ data: { session }, error: null })
-
-    render(
-      <SupabaseAuthProvider>
-        <Probe />
-      </SupabaseAuthProvider>,
-    )
-
-    await waitFor(() => expect(screen.getByTestId('error').textContent).toBe('multiple_memberships'))
-    expect(screen.getByTestId('clinic').textContent).toBe('')
-    expect(screen.getByTestId('memberships').textContent).toBe('2')
-
-    fireEvent.click(screen.getByRole('button', { name: 'select-other' }))
-    expect(screen.getByTestId('clinic').textContent).toBe('')
-
-    fireEvent.click(screen.getByRole('button', { name: 'select' }))
-    expect(screen.getByTestId('clinic').textContent).toBe('clinic-b')
-    expect(screen.getByTestId('error').textContent).toBe('')
+    expect(from).not.toHaveBeenCalled()
   })
 
   it('signs in and signs out through the auth client', async () => {

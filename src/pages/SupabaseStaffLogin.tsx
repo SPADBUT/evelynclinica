@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useSupabaseAuth } from '../context/SupabaseAuthContext'
+import { useV3Tenant } from '../context/V3TenantContext'
 import { loadClinicData } from '../lib/storage'
 import { Button } from '../components/ui/Button'
 import { isAuthorizedStaff } from '../auth/staffAccess'
@@ -15,20 +16,19 @@ function isV2PatientEmail(email: string): boolean {
 }
 
 export function SupabaseStaffLogin() {
-  const supabase = useSupabaseAuth()
+  const auth = useSupabaseAuth()
+  const tenant = useV3Tenant()
   const v2 = useAuth()
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   if (v2.isPatient) return <Navigate to="/portal" replace />
-  if (isAuthorizedStaff(supabase)) return <Navigate to="/" replace />
+  if (isAuthorizedStaff(tenant)) return <Navigate to="/" replace />
 
-  const choosingClinic = supabase.user && supabase.error?.code === 'multiple_memberships'
+  const choosingClinic = tenant.status === 'authenticated_needs_clinic_selection'
   const denied =
-    Boolean(supabase.user) &&
-    !supabase.loading &&
-    !choosingClinic &&
-    (supabase.error?.code === 'no_active_membership' || supabase.error?.code === 'profile_missing')
+    tenant.status === 'authenticated_without_membership' ||
+    (tenant.status === 'error' && Boolean(auth.user))
 
   async function onSubmit(email: string, password: string) {
     setError('')
@@ -41,22 +41,24 @@ export function SupabaseStaffLogin() {
     }
 
     setSubmitting(true)
-    const result = await supabase.signInWithPassword(email, password)
+    const result = await auth.signInWithPassword(email, password)
     setSubmitting(false)
     if (!result.ok) setError(result.error.message)
   }
 
   const clinicPicker = choosingClinic ? (
     <div className="mb-4 rounded-2xl border border-border bg-white/80 p-4 text-sm text-ink">
-      <p>{supabase.error?.message}</p>
+      <p>{tenant.error?.message}</p>
       <div className="mt-3 space-y-2">
-        {supabase.memberships.map((membership) => (
+        {tenant.memberships.map((membership) => (
           <Button
             key={membership.id}
             type="button"
             variant="secondary"
             className="w-full justify-between"
-            onClick={() => supabase.selectActiveClinic(membership.clinicId)}
+            onClick={() => {
+              tenant.selectClinic(membership.clinicId)
+            }}
           >
             <span className="capitalize">{membership.role}</span>
             <span className="font-mono text-xs text-muted">{membership.clinicId}</span>
@@ -68,13 +70,13 @@ export function SupabaseStaffLogin() {
 
   const denial = denied ? (
     <div className="mb-4 rounded-2xl border border-danger/30 bg-white/80 p-4 text-sm text-danger">
-      <p>{supabase.error?.message ?? 'Acesso negado.'}</p>
+      <p>{tenant.error?.message ?? 'Acesso negado.'}</p>
       <Button
         type="button"
         variant="secondary"
         className="mt-3"
         onClick={() => {
-          void supabase.signOut()
+          void auth.signOut()
         }}
       >
         Sair
@@ -82,11 +84,13 @@ export function SupabaseStaffLogin() {
     </div>
   ) : null
 
+  const anonymousError = !auth.user && tenant.status !== 'loading' ? (tenant.error?.message ?? '') : ''
+
   return (
     <LoginScreen
       onSubmit={onSubmit}
-      error={error || (!supabase.user ? supabase.error?.message : '')}
-      loading={submitting || (Boolean(supabase.user) && supabase.loading)}
+      error={error || anonymousError}
+      loading={submitting || (Boolean(auth.user) && tenant.status === 'loading')}
       extra={
         <>
           {clinicPicker}
