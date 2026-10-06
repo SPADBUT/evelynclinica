@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import {
   CalendarDays,
@@ -17,6 +18,16 @@ import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { Button } from '../ui/Button'
 
+const supabaseStaffLogin = import.meta.env.VITE_SUPABASE_AUTH_ENABLED === 'true'
+
+const SupabaseStaffIdentity = supabaseStaffLogin
+  ? lazy(() =>
+      import('../../auth/SupabaseStaffGate.tsx').then((mod) => ({
+        default: mod.SupabaseStaffIdentity,
+      })),
+    )
+  : null
+
 const nav = [
   { to: '/', label: 'Painel', icon: LayoutDashboard, end: true },
   { to: '/crm', label: 'CRM', icon: Workflow },
@@ -27,6 +38,31 @@ const nav = [
   { to: '/contratos', label: 'Contratos', icon: ScrollText },
   { to: '/orcamentos', label: 'Orçamentos', icon: Wallet },
 ]
+
+function AccountFooter({
+  name,
+  role,
+  onLogout,
+}: {
+  name?: string
+  role?: string
+  onLogout: () => void
+}) {
+  return (
+    <>
+      <p className="mt-2 text-cream/90">{name}</p>
+      <p className="mt-0.5 capitalize">{role}</p>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="mt-3 text-blush hover:bg-white/10 hover:text-white"
+        onClick={onLogout}
+      >
+        <LogOut size={14} /> Sair
+      </Button>
+    </>
+  )
+}
 
 export function AppLayout() {
   const [open, setOpen] = useState(false)
@@ -80,16 +116,17 @@ export function AppLayout() {
             <p className="flex items-center gap-2">
               <FileText size={14} /> V2 · CRM & assinatura
             </p>
-            <p className="mt-2 text-cream/90">{user?.name}</p>
-            <p className="mt-0.5 capitalize">{user?.role}</p>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mt-3 text-blush hover:bg-white/10 hover:text-white"
-              onClick={logout}
-            >
-              <LogOut size={14} /> Sair
-            </Button>
+            {SupabaseStaffIdentity ? (
+              <Suspense
+                fallback={
+                  <AccountFooter name={user?.name} role={user?.role} onLogout={logout} />
+                }
+              >
+                <SupabaseStaffIdentity />
+              </Suspense>
+            ) : (
+              <AccountFooter name={user?.name} role={user?.role} onLogout={logout} />
+            )}
           </div>
         </div>
       </aside>
