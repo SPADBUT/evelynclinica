@@ -20,7 +20,6 @@ export const PATIENT_STATUS_LABEL: Record<V3PatientStatus, string> = {
 
 export const PATIENT_360_SECTIONS = [
   'Histórico de tratamentos',
-  'Evoluções clínicas',
   'Fotos',
   'Documentos e consentimentos',
   'Orçamentos',

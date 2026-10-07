@@ -6,7 +6,7 @@ import type { SupabaseClinicMembership, SupabaseClinicRole, SupabaseStaffProfile
  * This is not a business permission matrix and it does not grant access.
  * RLS remains authoritative.
  */
-export const V3_PERMISSIONS = ['patients.manage'] as const
+export const V3_PERMISSIONS = ['patients.manage', 'clinical.records'] as const
 
 export type V3Permission = (typeof V3_PERMISSIONS)[number]
 

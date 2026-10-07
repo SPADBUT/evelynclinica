@@ -7,6 +7,13 @@ import type { SupabaseClinicMembership, SupabaseClinicRole } from '../types/supa
  */
 const PATIENT_MANAGER_ROLES = ['admin', 'assistant', 'professional', 'manager'] as const
 
+/**
+ * Roles that public.can_access_clinical_records allows.
+ * Assistant and finance are excluded. Inactive memberships fail hasRole.
+ * This is a display hint. RLS remains authoritative.
+ */
+const CLINICAL_RECORD_ROLES = ['admin', 'manager', 'professional'] as const
+
 export function hasRole(
   memberships: readonly SupabaseClinicMembership[],
   clinicId: string,
@@ -23,4 +30,11 @@ export function canManagePatients(
   clinicId: string,
 ): boolean {
   return hasRole(memberships, clinicId, PATIENT_MANAGER_ROLES)
+}
+
+export function canAccessClinicalRecords(
+  memberships: readonly SupabaseClinicMembership[],
+  clinicId: string,
+): boolean {
+  return hasRole(memberships, clinicId, CLINICAL_RECORD_ROLES)
 }

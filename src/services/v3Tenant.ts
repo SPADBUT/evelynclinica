@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { SupabaseAuthError } from '../lib/supabaseAuthError'
-import { canManagePatients, hasRole as membershipHasRole } from './supabaseRbac'
+import { canAccessClinicalRecords, canManagePatients, hasRole as membershipHasRole } from './supabaseRbac'
 import { resolveActiveClinic } from './supabaseAuthService'
 import type { SupabaseClinicMembership, SupabaseClinicRole, SupabaseStaffProfile } from '../types/supabaseAuth'
 import type { V3Clinic, V3Permission, V3TenantSnapshot, V3TenantStatus } from '../types/v3Tenant'
@@ -182,11 +182,13 @@ export function tenantHasAnyRole(
 
 /**
  * Display hint for the active clinic.
- * patients.manage mirrors the existing staff helper and excludes finance.
- * Any other permission is refused. RLS still enforces the query.
+ * patients.manage excludes finance.
+ * clinical.records allows admin, manager, and professional only.
+ * RLS still enforces the query.
  */
 export function tenantCan(state: V3TenantSnapshot, permission: V3Permission): boolean {
   if (state.status !== 'authenticated_ready' || !state.activeClinicId) return false
   if (permission === 'patients.manage') return canManagePatients(state.memberships, state.activeClinicId)
+  if (permission === 'clinical.records') return canAccessClinicalRecords(state.memberships, state.activeClinicId)
   return false
 }

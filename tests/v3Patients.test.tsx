@@ -10,6 +10,7 @@ import { resetSupabaseClientForTests } from '../src/lib/supabase'
 import { filterPatients } from '../src/pages/v3/patientDirectory'
 import { V3PatientDetailPage } from '../src/pages/v3/V3PatientDetailPage'
 import { V3PatientsPage } from '../src/pages/v3/V3PatientsPage'
+import { listClinicalContext, listClinicalRecords } from '../src/services/clinicalRepository'
 import {
   createPatient,
   getPatientById,
@@ -18,6 +19,16 @@ import {
   updatePatient,
 } from '../src/services/patientRepository'
 import type { V3Patient } from '../src/types/patient'
+
+vi.mock('../src/services/clinicalRepository', () => ({
+  listClinicalRecords: vi.fn(),
+  listClinicalContext: vi.fn(),
+  getClinicalRecord: vi.fn(),
+  createClinicalRecord: vi.fn(),
+  appendClinicalRecordVersion: vi.fn(),
+  finalizeClinicalRecord: vi.fn(),
+  cancelClinicalRecord: vi.fn(),
+}))
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(),
@@ -190,6 +201,11 @@ describe('V3 patients experience', () => {
       db.detail = db.detail ? { ...db.detail, deletedAt: '2026-10-06T18:00:00.000Z' } : null
       return { ok: true, value: sample({ id, deletedAt: '2026-10-06T18:00:00.000Z' }) }
     })
+    vi.mocked(listClinicalRecords).mockResolvedValue({ ok: true, value: [] })
+    vi.mocked(listClinicalContext).mockResolvedValue({
+      ok: true,
+      value: { procedures: [], treatments: [], sessions: [] },
+    })
   })
 
   afterEach(() => {
@@ -259,12 +275,16 @@ describe('V3 patients experience', () => {
     expect(await screen.findByRole('heading', { name: 'Ana Sintetica' })).toBeTruthy()
     expect(screen.getByText('Resumo')).toBeTruthy()
     expect(screen.getByText('Histórico')).toBeTruthy()
-    expect(screen.getAllByText('Em construção')).toHaveLength(7)
+    expect(screen.getAllByText('Em construção')).toHaveLength(6)
     expect(screen.getByText('Histórico de tratamentos')).toBeTruthy()
-    expect(screen.getByText('Evoluções clínicas')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Evoluções clínicas' })).toBeTruthy()
+    expect(await screen.findByText('Nenhuma evolução')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Nova evolução' })).toBeTruthy()
     expect(screen.getByText('Documentos e consentimentos')).toBeTruthy()
     expect(screen.getByText('Agenda')).toBeTruthy()
     expect(getPatientById).toHaveBeenCalledWith(expect.objectContaining({ activeClinicId: 'clinic-a' }), 'patient-1')
+    expect(listClinicalRecords).toHaveBeenCalledWith(expect.objectContaining({ activeClinicId: 'clinic-a' }), 'patient-1')
+    expect(vi.mocked(listClinicalRecords).mock.calls[0]).toHaveLength(2)
   })
 
   it('creates a patient through the repository', async () => {
@@ -317,7 +337,9 @@ describe('V3 patients experience', () => {
     renderPatients('/v3/patients/missing')
     expect(await screen.findByText('Paciente não encontrada')).toBeTruthy()
     expect(screen.queryByText('Histórico de tratamentos')).toBeNull()
+    expect(screen.queryByText('Nenhuma evolução')).toBeNull()
     expect(getPatientById).toHaveBeenCalledWith(expect.objectContaining({ activeClinicId: 'clinic-a' }), 'missing')
+    expect(listClinicalRecords).not.toHaveBeenCalled()
   })
 
   it('asks for a session and does not call the repository', async () => {
@@ -342,6 +364,7 @@ describe('V3 patients experience', () => {
     expect(await screen.findByText('Acesso restrito')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Nova paciente' })).toBeNull()
     expect(listPatients).not.toHaveBeenCalled()
+    expect(listClinicalRecords).not.toHaveBeenCalled()
   })
 
   it('keeps Patient 360 off V2 identity and storage', () => {

@@ -13,6 +13,7 @@ import {
   type V3PatientFormValue,
 } from './patientDirectory'
 import { useV3PatientDetail } from './useV3Patients'
+import { V3ClinicalEvolution } from './V3ClinicalEvolution'
 import { V3PatientForm } from './V3PatientForm'
 import { V3PatientScreen } from './V3PatientScreen'
 
@@ -134,6 +135,8 @@ export function V3PatientDetailPage() {
               <Fact label="Observações" value={patient.notes} />
             </dl>
           </Card>
+
+          <V3ClinicalEvolution patientId={patient.id} />
 
           <Card>
             <h2 className="font-display text-2xl text-plum">Histórico</h2>
