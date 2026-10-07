@@ -17,6 +17,7 @@ import { CrmPage } from './pages/CrmPage'
 import { PatientConsentsPage } from './pages/patient/PatientConsentsPage'
 import { SignConsentPage } from './pages/patient/SignConsentPage'
 import { PatientContractsPage } from './pages/patient/PatientContractsPage'
+import { V3PatientDetailRoute, V3PatientListRoute } from './v3/V3PatientRoutes'
 
 /** Mirrors Vite `base` (from VITE_BASE_PATH). Root `/` → no basename. */
 const routerBasename = import.meta.env.BASE_URL.replace(/\/$/, '') || undefined
@@ -35,6 +36,8 @@ export default function App() {
                 <Route path="crm" element={<CrmPage />} />
                 <Route path="pacientes" element={<PatientsPage />} />
                 <Route path="pacientes/:id" element={<PatientDetailPage />} />
+                <Route path="v3/patients" element={<V3PatientListRoute />} />
+                <Route path="v3/patients/:id" element={<V3PatientDetailRoute />} />
                 <Route path="agenda" element={<AgendaPage />} />
                 <Route path="fotos" element={<PhotosPage />} />
                 <Route path="termos" element={<ConsentsPage />} />
