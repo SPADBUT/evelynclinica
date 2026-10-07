@@ -145,19 +145,33 @@ function recordedAtValue(value: string | null | undefined): ClinicalResult<strin
 function mapDatabaseError(error: PostgrestErrorLike): ClinicalRepositoryError {
   const code = error.code ?? ''
   const message = (error.message ?? '').toLowerCase()
+  if (code === '42501' && message.includes('unauthenticated')) {
+    return new ClinicalRepositoryError('unauthenticated', 'Sessão de staff indisponível.')
+  }
   if (
     code === '42501' ||
     message.includes('row-level security') ||
     message.includes('permission denied') ||
     message.includes('clinical audit denied') ||
+    message.includes('clinical evolution denied') ||
+    message.includes('clinical evolution clinic mismatch') ||
     message.includes('author must be the current user')
   ) {
     return new ClinicalRepositoryError('forbidden', 'Acesso negado pela política da clínica.')
   }
+  if (code === 'P0002' && message.includes('patient')) {
+    return new ClinicalRepositoryError('patient_not_found', 'Paciente não encontrado nesta clínica.')
+  }
+  if (code === 'P0002') {
+    return new ClinicalRepositoryError('clinical_record_not_found', 'Evolução não encontrada.')
+  }
   if (code === 'P0001' && message.includes('clinic_id is immutable')) {
     return new ClinicalRepositoryError('clinic_transfer_rejected', 'A clínica da evolução não pode ser alterada.')
   }
-  if (code === 'P0001' && (message.includes('immutable') || message.includes('identity'))) {
+  if (code === 'P0001' && message.includes('clinical evolution closed')) {
+    return new ClinicalRepositoryError('record_closed', 'Evolução cancelada não pode ser alterada.')
+  }
+  if (code === 'P0001' && (message.includes('immutable') || message.includes('identity') || message.includes('invariant'))) {
     return new ClinicalRepositoryError('repository_error', 'O histórico clínico não pode ser alterado.')
   }
   if (
@@ -166,8 +180,11 @@ function mapDatabaseError(error: PostgrestErrorLike): ClinicalRepositoryError {
   ) {
     return new ClinicalRepositoryError('forbidden', 'Acesso negado pela política da clínica.')
   }
-  if (code === '22P02' || code === '23503') {
+  if (code === '22023' || code === '22P02' || code === '23503') {
     return new ClinicalRepositoryError('invalid_input', 'Vínculo clínico não encontrado nesta clínica.')
+  }
+  if (code === '23505') {
+    return new ClinicalRepositoryError('repository_error', 'Não foi possível concluir a operação de evolução.')
   }
   return new ClinicalRepositoryError('repository_error', 'Não foi possível concluir a operação de evolução.')
 }
@@ -189,11 +206,6 @@ function scoped(tenant: V3TenantSnapshot): ClinicalResult<{ client: SupabaseClie
   const client = openClient()
   if (!client.ok) return client
   return success({ client: client.value, scope: scope.value })
-}
-
-function professionalName(tenant: V3TenantSnapshot): string | null {
-  const name = tenant.profile?.fullName?.trim() ?? ''
-  return name.length > 0 ? name : null
 }
 
 async function requireActivePatient(
@@ -271,30 +283,20 @@ async function loadRecord(
   }
 }
 
-async function writeAudit(
+async function callEvolutionRpc(
   client: SupabaseClient,
-  scope: ClinicalScope,
-  action: 'clinical_record.created' | 'clinical_record.versioned' | 'clinical_record.finalized' | 'clinical_record.cancelled',
-  recordId: string,
-  versionNumber: number,
-  status: ClinicalRecordStatus,
-): Promise<ClinicalRepositoryError | null> {
-  const metadata: { version_number: number; status: ClinicalRecordStatus } = {
-    version_number: versionNumber,
-    status,
-  }
+  fn: 'create_clinical_evolution' | 'append_clinical_evolution' | 'transition_clinical_evolution',
+  args: Record<string, unknown>,
+): Promise<ClinicalResult<string>> {
   try {
-    const { error } = await client.rpc('write_clinical_audit', {
-      p_clinic_id: scope.clinicId,
-      p_action: action,
-      p_entity_type: 'clinical_record',
-      p_entity_id: recordId,
-      p_metadata: metadata,
-    })
-    if (error) return mapDatabaseError(error)
-    return null
+    const result = await client.rpc(fn, args)
+    if (result.error) return failure(mapDatabaseError(result.error))
+    if (typeof result.data !== 'string' || result.data.trim() === '') {
+      return failure(new ClinicalRepositoryError('repository_error', 'Resposta de evolução inválida.'))
+    }
+    return success(result.data)
   } catch {
-    return new ClinicalRepositoryError('repository_error', 'Não foi possível concluir a operação de evolução.')
+    return failure(new ClinicalRepositoryError('repository_error', 'Não foi possível concluir a operação de evolução.'))
   }
 }
 
@@ -477,32 +479,6 @@ async function resolveLinks(
   })
 }
 
-function versionRow(
-  scope: ClinicalScope,
-  tenant: V3TenantSnapshot,
-  recordId: string,
-  versionNumber: number,
-  procedureName: string,
-  input: V3ClinicalVersionInput,
-  recordedAt: string | undefined,
-): Record<string, unknown> {
-  const row: Record<string, unknown> = {
-    clinic_id: scope.clinicId,
-    clinical_record_id: recordId,
-    version_number: versionNumber,
-    procedure_name: procedureName,
-    professional_name: professionalName(tenant),
-    anamnesis: textOrEmpty(input.anamnesis),
-    evolution: textOrEmpty(input.evolution),
-    products_used_summary: blankToNull(input.productsUsedSummary),
-    next_steps: textOrEmpty(input.nextSteps),
-    change_reason: blankToNull(input.changeReason),
-    created_by: scope.userId,
-  }
-  if (recordedAt) row.recorded_at = recordedAt
-  return row
-}
-
 export async function createClinicalRecord(
   tenant: V3TenantSnapshot,
   input: V3ClinicalRecordInput,
@@ -517,60 +493,22 @@ export async function createClinicalRecord(
   if (!recorded.ok) return recorded
   const links = await resolveLinks(ready.value.client, ready.value.scope, input.patientId, input)
   if (!links.ok) return links
-  try {
-    const inserted = await ready.value.client
-      .from('clinical_records')
-      .insert({
-        clinic_id: ready.value.scope.clinicId,
-        patient_id: input.patientId,
-        treatment_id: links.value.treatmentId,
-        treatment_session_id: links.value.treatmentSessionId,
-        procedure_id: links.value.procedureId,
-        status: 'draft',
-        created_by: ready.value.scope.userId,
-      })
-      .select(HEADER_COLUMNS)
-      .maybeSingle()
-    if (inserted.error) return failure(mapDatabaseError(inserted.error))
-    const header = readClinicalHeader(inserted.data)
-    if (!header || header.clinicId !== ready.value.scope.clinicId) {
-      return failure(new ClinicalRepositoryError('repository_error', 'Resposta de evolução inválida.'))
-    }
-    const versionInsert = await ready.value.client
-      .from('clinical_record_versions')
-      .insert(versionRow(ready.value.scope, tenant, header.id, 1, links.value.procedureName, input, recorded.value))
-      .select(VERSION_COLUMNS)
-      .maybeSingle()
-    if (versionInsert.error) return failure(mapDatabaseError(versionInsert.error))
-    const version = readClinicalVersion(versionInsert.data)
-    if (!version || version.clinicId !== ready.value.scope.clinicId || version.recordId !== header.id) {
-      return failure(new ClinicalRepositoryError('repository_error', 'Resposta de evolução inválida.'))
-    }
-    const pointed = await ready.value.client
-      .from('clinical_records')
-      .update({ current_version_id: version.id })
-      .eq('id', header.id)
-      .eq('clinic_id', ready.value.scope.clinicId)
-      .select(HEADER_COLUMNS)
-      .maybeSingle()
-    if (pointed.error) return failure(mapDatabaseError(pointed.error))
-    const current = readClinicalHeader(pointed.data)
-    if (!current || current.currentVersionId !== version.id) {
-      return failure(new ClinicalRepositoryError('repository_error', 'Resposta de evolução inválida.'))
-    }
-    const auditError = await writeAudit(
-      ready.value.client,
-      ready.value.scope,
-      'clinical_record.created',
-      current.id,
-      version.versionNumber,
-      current.status,
-    )
-    if (auditError) return failure(auditError)
-    return success(assembleClinicalRecord(current, [version]))
-  } catch {
-    return failure(new ClinicalRepositoryError('repository_error', 'Não foi possível concluir a operação de evolução.'))
-  }
+  const created = await callEvolutionRpc(ready.value.client, 'create_clinical_evolution', {
+    p_clinic_id: ready.value.scope.clinicId,
+    p_patient_id: input.patientId,
+    p_treatment_id: links.value.treatmentId,
+    p_treatment_session_id: links.value.treatmentSessionId,
+    p_procedure_id: links.value.procedureId,
+    p_procedure_name: links.value.procedureName,
+    p_recorded_at: recorded.value ?? null,
+    p_anamnesis: textOrEmpty(input.anamnesis),
+    p_evolution: textOrEmpty(input.evolution),
+    p_products_used_summary: blankToNull(input.productsUsedSummary),
+    p_next_steps: textOrEmpty(input.nextSteps),
+    p_change_reason: blankToNull(input.changeReason),
+  })
+  if (!created.ok) return created
+  return loadRecord(ready.value.client, ready.value.scope, created.value)
 }
 
 export async function appendClinicalRecordVersion(
@@ -593,62 +531,24 @@ export async function appendClinicalRecordVersion(
   if (existing.value.status === 'cancelled') {
     return failure(closed('Evolução cancelada não pode ser alterada.'))
   }
-  const nextStatus: ClinicalRecordStatus = existing.value.status === 'finalized' ? 'corrected' : existing.value.status
-  const nextNumber = existing.value.versions.reduce((max, version) => Math.max(max, version.versionNumber), 0) + 1
-  try {
-    const versionInsert = await ready.value.client
-      .from('clinical_record_versions')
-      .insert(
-        versionRow(
-          ready.value.scope,
-          tenant,
-          existing.value.id,
-          nextNumber,
-          procedureName,
-          { ...input, changeReason: reason },
-          recorded.value,
-        ),
-      )
-      .select(VERSION_COLUMNS)
-      .maybeSingle()
-    if (versionInsert.error) return failure(mapDatabaseError(versionInsert.error))
-    const version = readClinicalVersion(versionInsert.data)
-    if (!version || version.versionNumber !== nextNumber || version.recordId !== existing.value.id) {
-      return failure(new ClinicalRepositoryError('repository_error', 'Resposta de evolução inválida.'))
-    }
-    const patch: Record<string, unknown> = { current_version_id: version.id }
-    if (nextStatus !== existing.value.status) patch.status = nextStatus
-    const pointed = await ready.value.client
-      .from('clinical_records')
-      .update(patch)
-      .eq('id', existing.value.id)
-      .eq('clinic_id', ready.value.scope.clinicId)
-      .select(HEADER_COLUMNS)
-      .maybeSingle()
-    if (pointed.error) return failure(mapDatabaseError(pointed.error))
-    const header = readClinicalHeader(pointed.data)
-    if (!header || header.currentVersionId !== version.id || header.status !== nextStatus) {
-      return failure(new ClinicalRepositoryError('repository_error', 'Resposta de evolução inválida.'))
-    }
-    const auditError = await writeAudit(
-      ready.value.client,
-      ready.value.scope,
-      'clinical_record.versioned',
-      header.id,
-      version.versionNumber,
-      header.status,
-    )
-    if (auditError) return failure(auditError)
-    return success(assembleClinicalRecord(header, [version, ...existing.value.versions]))
-  } catch {
-    return failure(new ClinicalRepositoryError('repository_error', 'Não foi possível concluir a operação de evolução.'))
-  }
+  const appended = await callEvolutionRpc(ready.value.client, 'append_clinical_evolution', {
+    p_clinic_id: ready.value.scope.clinicId,
+    p_clinical_record_id: existing.value.id,
+    p_procedure_name: procedureName,
+    p_recorded_at: recorded.value ?? null,
+    p_anamnesis: textOrEmpty(input.anamnesis),
+    p_evolution: textOrEmpty(input.evolution),
+    p_products_used_summary: blankToNull(input.productsUsedSummary),
+    p_next_steps: textOrEmpty(input.nextSteps),
+    p_change_reason: reason,
+  })
+  if (!appended.ok) return appended
+  return loadRecord(ready.value.client, ready.value.scope, appended.value)
 }
 
 async function transition(
   tenant: V3TenantSnapshot,
   recordId: string,
-  action: 'clinical_record.finalized' | 'clinical_record.cancelled',
   next: (status: ClinicalRecordStatus) => ClinicalResult<ClinicalRecordStatus>,
 ): Promise<ClinicalResult<V3ClinicalRecord>> {
   const ready = scoped(tenant)
@@ -657,40 +557,20 @@ async function transition(
   if (!existing.ok) return existing
   const status = next(existing.value.status)
   if (!status.ok) return status
-  try {
-    const pointed = await ready.value.client
-      .from('clinical_records')
-      .update({ status: status.value })
-      .eq('id', existing.value.id)
-      .eq('clinic_id', ready.value.scope.clinicId)
-      .select(HEADER_COLUMNS)
-      .maybeSingle()
-    if (pointed.error) return failure(mapDatabaseError(pointed.error))
-    const header = readClinicalHeader(pointed.data)
-    if (!header || header.status !== status.value) {
-      return failure(new ClinicalRepositoryError('repository_error', 'Resposta de evolução inválida.'))
-    }
-    const current = existing.value.versions[0]
-    const auditError = await writeAudit(
-      ready.value.client,
-      ready.value.scope,
-      action,
-      header.id,
-      current?.versionNumber ?? 1,
-      header.status,
-    )
-    if (auditError) return failure(auditError)
-    return success(assembleClinicalRecord(header, existing.value.versions))
-  } catch {
-    return failure(new ClinicalRepositoryError('repository_error', 'Não foi possível concluir a operação de evolução.'))
-  }
+  const changed = await callEvolutionRpc(ready.value.client, 'transition_clinical_evolution', {
+    p_clinic_id: ready.value.scope.clinicId,
+    p_clinical_record_id: existing.value.id,
+    p_status: status.value,
+  })
+  if (!changed.ok) return changed
+  return loadRecord(ready.value.client, ready.value.scope, changed.value)
 }
 
 export async function finalizeClinicalRecord(
   tenant: V3TenantSnapshot,
   recordId: string,
 ): Promise<ClinicalResult<V3ClinicalRecord>> {
-  return transition(tenant, recordId, 'clinical_record.finalized', (status) => {
+  return transition(tenant, recordId, (status) => {
     if (status === 'draft' || status === 'in_progress' || status === 'corrected') return success('finalized')
     if (status === 'finalized') return failure(closed('Evolução já finalizada.'))
     return failure(closed('Evolução cancelada não pode ser alterada.'))
@@ -701,7 +581,7 @@ export async function cancelClinicalRecord(
   tenant: V3TenantSnapshot,
   recordId: string,
 ): Promise<ClinicalResult<V3ClinicalRecord>> {
-  return transition(tenant, recordId, 'clinical_record.cancelled', (status) => {
+  return transition(tenant, recordId, (status) => {
     if (status === 'cancelled') return failure(closed('Evolução já cancelada.'))
     return success('cancelled')
   })

@@ -95,7 +95,8 @@ function installClient() {
   const rpc = vi.fn((fn: string, args: Record<string, unknown>) => {
     db.rpc.push({ fn, args })
     if (db.throwNetwork) return Promise.reject(new TypeError('Failed to fetch'))
-    return Promise.resolve({ data: db.rpcError ? null : 'audit-1', error: db.rpcError })
+    const id = typeof args.p_clinical_record_id === 'string' ? args.p_clinical_record_id : 'record-1'
+    return Promise.resolve({ data: db.rpcError ? null : id, error: db.rpcError })
   })
   vi.mocked(createClient).mockReturnValue({ from, rpc } as unknown as SupabaseClient)
 }
@@ -329,11 +330,10 @@ describe('clinical repository', () => {
     expect(db.filters).toContain(`treatment_sessions:eq:clinic_id:${CLINIC}`)
   })
 
-  it('creates a draft with the tenant clinic and audits without the narrative', async () => {
+  it('creates a draft through one transactional rpc and reloads it', async () => {
     push(patientRow())
-    push(header({ current_version_id: null }))
-    push(version({ evolution: 'texto clinico secreto', products_used_summary: 'toxina', next_steps: 'retorno' }))
     push(header())
+    push([version({ evolution: 'texto clinico secreto', products_used_summary: 'toxina', next_steps: 'retorno' })])
     const result = await createClinicalRecord(snapshot('authenticated_ready', 'professional'), {
       patientId: 'patient-1',
       procedureName: '  Limpeza  ',
@@ -345,40 +345,32 @@ describe('clinical repository', () => {
     if (result.ok) {
       expect(result.value.status).toBe('draft')
       expect(result.value.clinicId).toBe(CLINIC)
+      expect(result.value.currentVersionId).toBe('version-1')
+      expect(result.value.versions).toHaveLength(1)
       expect(result.value.versions[0]?.evolution).toBe('texto clinico secreto')
     }
-    expect(db.insert[0]).toEqual({
-      table: 'clinical_records',
-      row: expect.objectContaining({
-        clinic_id: CLINIC,
-        patient_id: 'patient-1',
-        status: 'draft',
-        created_by: 'user-1',
-      }),
-    })
-    expect(db.insert[1]?.row).toEqual(
+    expect(db.insert).toEqual([])
+    expect(db.update).toEqual([])
+    expect(db.rpc).toHaveLength(1)
+    expect(db.rpc[0]?.fn).toBe('create_clinical_evolution')
+    expect(db.rpc[0]?.args).toEqual(
       expect.objectContaining({
-        clinic_id: CLINIC,
-        version_number: 1,
-        procedure_name: 'Limpeza',
-        professional_name: 'Staff',
-        created_by: 'user-1',
-        evolution: 'texto clinico secreto',
+        p_clinic_id: CLINIC,
+        p_patient_id: 'patient-1',
+        p_procedure_name: 'Limpeza',
+        p_evolution: 'texto clinico secreto',
+        p_products_used_summary: 'toxina',
+        p_next_steps: 'retorno',
       }),
     )
-    expect(db.update).toEqual([{ table: 'clinical_records', row: { current_version_id: 'version-1' } }])
-    expect(db.rpc[0]).toEqual({
-      fn: 'write_clinical_audit',
-      args: {
-        p_clinic_id: CLINIC,
-        p_action: 'clinical_record.created',
-        p_entity_type: 'clinical_record',
-        p_entity_id: 'record-1',
-        p_metadata: { version_number: 1, status: 'draft' },
-      },
-    })
-    expect(JSON.stringify(db.rpc)).not.toContain('texto clinico secreto')
-    expect(JSON.stringify(db.rpc)).not.toContain('toxina')
+    expect(db.rpc[0]?.args).not.toHaveProperty('created_by')
+    expect(db.rpc[0]?.args).not.toHaveProperty('p_created_by')
+    expect(db.rpc[0]?.args).not.toHaveProperty('professional_name')
+    expect(db.rpc[0]?.args).not.toHaveProperty('p_professional_name')
+    expect(db.rpc[0]?.args).not.toHaveProperty('p_version_number')
+    expect(db.rpc[0]?.args).not.toHaveProperty('p_current_version_id')
+    expect(db.rpc[0]?.args).not.toHaveProperty('p_status')
+    expect(JSON.stringify(db.rpc)).not.toContain('write_clinical_audit')
     expect(db.deletes).toEqual([])
   })
 
@@ -404,9 +396,8 @@ describe('clinical repository', () => {
   it('keeps the session inside the same patient and treatment', async () => {
     push(patientRow())
     push({ id: 'sess-1', clinic_id: CLINIC, patient_id: 'patient-1', treatment_id: 'treat-1' })
-    push(header({ treatment_id: 'treat-1', treatment_session_id: 'sess-1', current_version_id: null, treatment_sessions: { session_number: 2 } }))
-    push(version())
     push(header({ treatment_id: 'treat-1', treatment_session_id: 'sess-1', treatment_sessions: { session_number: 2 } }))
+    push([version()])
     const created = await createClinicalRecord(snapshot('authenticated_ready'), {
       patientId: 'patient-1',
       treatmentSessionId: 'sess-1',
@@ -414,11 +405,16 @@ describe('clinical repository', () => {
     })
     expect(created.ok).toBe(true)
     if (created.ok) expect(created.value.sessionNumber).toBe(2)
-    expect(db.insert[0]?.row).toEqual(
-      expect.objectContaining({ treatment_id: 'treat-1', treatment_session_id: 'sess-1', clinic_id: CLINIC }),
+    expect(db.rpc[0]?.args).toEqual(
+      expect.objectContaining({
+        p_clinic_id: CLINIC,
+        p_treatment_id: 'treat-1',
+        p_treatment_session_id: 'sess-1',
+      }),
     )
+    expect(db.insert).toEqual([])
 
-    db.insert = []
+    db.rpc = []
     push(patientRow())
     push({ id: 'sess-1', clinic_id: CLINIC, patient_id: 'patient-1', treatment_id: 'treat-1' })
     const mismatch = await createClinicalRecord(snapshot('authenticated_ready'), {
@@ -429,14 +425,18 @@ describe('clinical repository', () => {
     })
     expect(mismatch.ok).toBe(false)
     if (!mismatch.ok) expect(mismatch.error.code).toBe('invalid_input')
+    expect(db.rpc).toEqual([])
     expect(db.insert).toEqual([])
   })
 
-  it('appends a version and preserves the previous one', async () => {
+  it('appends a version through one rpc and preserves the previous one', async () => {
     push(header({ status: 'finalized' }))
     push([version({ evolution: 'texto original' })])
-    push(version({ id: 'version-2', version_number: 2, evolution: 'texto corrigido', change_reason: 'correção' }))
     push(header({ status: 'corrected', current_version_id: 'version-2' }))
+    push([
+      version({ id: 'version-2', version_number: 2, evolution: 'texto corrigido', change_reason: 'correção' }),
+      version({ evolution: 'texto original' }),
+    ])
     const result = await appendClinicalRecordVersion(snapshot('authenticated_ready', 'manager'), 'record-1', {
       procedureName: 'Limpeza',
       evolution: 'texto corrigido',
@@ -445,17 +445,28 @@ describe('clinical repository', () => {
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect(result.value.status).toBe('corrected')
+      expect(result.value.currentVersionId).toBe('version-2')
       expect(result.value.versions.map((item) => item.versionNumber)).toEqual([2, 1])
       expect(result.value.versions[1]?.evolution).toBe('texto original')
     }
-    expect(db.update).toEqual([
-      { table: 'clinical_records', row: { current_version_id: 'version-2', status: 'corrected' } },
+    expect(db.insert).toEqual([])
+    expect(db.update).toEqual([])
+    expect(db.rpc).toEqual([
+      {
+        fn: 'append_clinical_evolution',
+        args: expect.objectContaining({
+          p_clinic_id: CLINIC,
+          p_clinical_record_id: 'record-1',
+          p_procedure_name: 'Limpeza',
+          p_evolution: 'texto corrigido',
+          p_change_reason: 'correção',
+        }),
+      },
     ])
-    expect(db.insert.map((item) => item.table)).toEqual(['clinical_record_versions'])
-    expect(db.insert[0]?.row.version_number).toBe(2)
-    expect(JSON.stringify(db.update)).not.toContain('texto')
-    expect(db.rpc[0]?.args.p_metadata).toEqual({ version_number: 2, status: 'corrected' })
-    expect(JSON.stringify(db.rpc)).not.toContain('texto corrigido')
+    expect(db.rpc[0]?.args).not.toHaveProperty('p_version_number')
+    expect(db.rpc[0]?.args).not.toHaveProperty('p_professional_name')
+    expect(db.rpc[0]?.args).not.toHaveProperty('p_created_by')
+    expect(JSON.stringify(db.rpc)).not.toContain('write_clinical_audit')
     expect(db.deletes).toEqual([])
   })
 
@@ -469,37 +480,49 @@ describe('clinical repository', () => {
     })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error.code).toBe('record_closed')
+    expect(db.rpc).toEqual([])
     expect(db.insert).toEqual([])
     expect(db.update).toEqual([])
     expect(db.deletes).toEqual([])
   })
 
-  it('finalizes and cancels the header without rewriting versions', async () => {
+  it('finalizes and cancels through one rpc without rewriting versions', async () => {
     push(header())
     push([version({ evolution: 'texto original' })])
     push(header({ status: 'finalized' }))
+    push([version({ evolution: 'texto original' })])
     const finalized = await finalizeClinicalRecord(snapshot('authenticated_ready', 'admin'), 'record-1')
     expect(finalized.ok).toBe(true)
     if (finalized.ok) {
       expect(finalized.value.status).toBe('finalized')
       expect(finalized.value.versions[0]?.evolution).toBe('texto original')
     }
-    expect(db.update).toEqual([{ table: 'clinical_records', row: { status: 'finalized' } }])
-    expect(db.rpc[0]?.args).toEqual(
-      expect.objectContaining({ p_action: 'clinical_record.finalized', p_metadata: { version_number: 1, status: 'finalized' } }),
-    )
+    expect(db.update).toEqual([])
+    expect(db.insert).toEqual([])
+    expect(db.rpc).toEqual([
+      {
+        fn: 'transition_clinical_evolution',
+        args: expect.objectContaining({
+          p_clinic_id: CLINIC,
+          p_clinical_record_id: 'record-1',
+          p_status: 'finalized',
+        }),
+      },
+    ])
 
-    db.update = []
+    db.rpc = []
     push(header({ status: 'finalized' }))
     push([version()])
     const again = await finalizeClinicalRecord(snapshot('authenticated_ready'), 'record-1')
     expect(again.ok).toBe(false)
     if (!again.ok) expect(again.error.code).toBe('record_closed')
+    expect(db.rpc).toEqual([])
     expect(db.update).toEqual([])
 
     push(header())
     push([version({ evolution: 'texto original' })])
     push(header({ status: 'cancelled' }))
+    push([version({ evolution: 'texto original' })])
     const cancelled = await cancelClinicalRecord(snapshot('authenticated_ready'), 'record-1')
     expect(cancelled.ok).toBe(true)
     if (cancelled.ok) {
@@ -507,7 +530,11 @@ describe('clinical repository', () => {
       expect(cancelled.value.versions[0]?.evolution).toBe('texto original')
     }
     expect(db.deletes).toEqual([])
-    expect(db.update.at(-1)).toEqual({ table: 'clinical_records', row: { status: 'cancelled' } })
+    expect(db.update).toEqual([])
+    expect(db.rpc.at(-1)).toEqual({
+      fn: 'transition_clinical_evolution',
+      args: expect.objectContaining({ p_status: 'cancelled' }),
+    })
   })
 
   it('maps database denials without exposing the policy text', async () => {
@@ -522,13 +549,68 @@ describe('clinical repository', () => {
     }
 
     push(patientRow())
-    push(null, { code: 'P0001', message: 'clinic_id is immutable' })
+    db.rpcError = { code: 'P0001', message: 'clinic_id is immutable' }
     const immutable = await createClinicalRecord(snapshot('authenticated_ready'), {
       patientId: 'patient-1',
       procedureName: 'Limpeza',
     })
     expect(immutable.ok).toBe(false)
     if (!immutable.ok) expect(immutable.error.code).toBe('clinic_transfer_rejected')
+
+    db.rpcError = { code: '42501', message: 'clinical evolution unauthenticated' }
+    push(patientRow())
+    const anonymous = await createClinicalRecord(snapshot('authenticated_ready'), {
+      patientId: 'patient-1',
+      procedureName: 'Limpeza',
+    })
+    expect(anonymous.ok).toBe(false)
+    if (!anonymous.ok) expect(anonymous.error.code).toBe('unauthenticated')
+
+    db.rpcError = { code: 'P0002', message: 'clinical evolution patient missing' }
+    push(patientRow())
+    const missingPatient = await createClinicalRecord(snapshot('authenticated_ready'), {
+      patientId: 'patient-1',
+      procedureName: 'Limpeza',
+    })
+    expect(missingPatient.ok).toBe(false)
+    if (!missingPatient.ok) expect(missingPatient.error.code).toBe('patient_not_found')
+
+    db.rpcError = { code: 'P0002', message: 'clinical evolution record missing' }
+    push(patientRow())
+    const missingRecord = await createClinicalRecord(snapshot('authenticated_ready'), {
+      patientId: 'patient-1',
+      procedureName: 'Limpeza',
+    })
+    expect(missingRecord.ok).toBe(false)
+    if (!missingRecord.ok) expect(missingRecord.error.code).toBe('clinical_record_not_found')
+
+    db.rpcError = { code: 'P0001', message: 'clinical evolution closed' }
+    push(patientRow())
+    const closedRecord = await createClinicalRecord(snapshot('authenticated_ready'), {
+      patientId: 'patient-1',
+      procedureName: 'Limpeza',
+    })
+    expect(closedRecord.ok).toBe(false)
+    if (!closedRecord.ok) expect(closedRecord.error.code).toBe('record_closed')
+
+    db.rpcError = { code: '22023', message: 'clinical evolution invalid input' }
+    push(patientRow())
+    const invalidInput = await createClinicalRecord(snapshot('authenticated_ready'), {
+      patientId: 'patient-1',
+      procedureName: 'Limpeza',
+    })
+    expect(invalidInput.ok).toBe(false)
+    if (!invalidInput.ok) expect(invalidInput.error.code).toBe('invalid_input')
+
+    db.rpcError = { code: '23505', message: 'duplicate key value violates unique constraint' }
+    push(patientRow())
+    const duplicate = await createClinicalRecord(snapshot('authenticated_ready'), {
+      patientId: 'patient-1',
+      procedureName: 'Limpeza',
+    })
+    expect(duplicate.ok).toBe(false)
+    if (!duplicate.ok) expect(duplicate.error.code).toBe('repository_error')
+    db.rpcError = null
 
     db.throwNetwork = true
     const network = await listClinicalRecords(snapshot('authenticated_ready'), 'patient-1')
@@ -547,6 +629,12 @@ describe('clinical repository', () => {
     ]
     const combined = files.map((file) => readFileSync(file, 'utf8')).join('\n')
     expect(combined).toContain('getSupabaseClient')
+    expect(combined).toContain('create_clinical_evolution')
+    expect(combined).toContain('append_clinical_evolution')
+    expect(combined).toContain('transition_clinical_evolution')
+    expect(readFileSync('src/services/clinicalRepository.ts', 'utf8')).not.toContain('write_clinical_audit')
+    expect(readFileSync('src/services/clinicalRepository.ts', 'utf8')).not.toContain('.insert(')
+    expect(readFileSync('src/services/clinicalRepository.ts', 'utf8')).not.toContain('.update(')
     expect(combined).not.toContain('localStorage')
     expect(combined).not.toContain('service_role')
     expect(combined).not.toContain('createClient')
