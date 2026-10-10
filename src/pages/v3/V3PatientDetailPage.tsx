@@ -14,6 +14,7 @@ import {
 } from './patientDirectory'
 import { useV3PatientDetail } from './useV3Patients'
 import { V3ClinicalEvolution } from './V3ClinicalEvolution'
+import { V3PatientAgenda } from './V3PatientAgenda'
 import { V3PatientForm } from './V3PatientForm'
 import { V3PatientScreen } from './V3PatientScreen'
 
@@ -137,6 +138,8 @@ export function V3PatientDetailPage() {
           </Card>
 
           <V3ClinicalEvolution patientId={patient.id} />
+
+          <V3PatientAgenda patientId={patient.id} patientName={patient.fullName} />
 
           <Card>
             <h2 className="font-display text-2xl text-plum">Histórico</h2>

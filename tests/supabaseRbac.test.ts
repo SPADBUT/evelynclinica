@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canAccessClinicalRecords, canManagePatients, hasRole } from '../src/services/supabaseRbac'
+import { canAccessClinicalRecords, canManageAgenda, canManagePatients, hasRole } from '../src/services/supabaseRbac'
 import { tenantCan } from '../src/services/v3Tenant'
 import type { SupabaseClinicMembership, SupabaseClinicRole } from '../src/types/supabaseAuth'
 import type { V3TenantSnapshot } from '../src/types/v3Tenant'
@@ -40,6 +40,15 @@ describe('display RBAC', () => {
     ).toBe(false)
     expect(tenantCan(ready('assistant'), 'patients.manage')).toBe(true)
     expect(tenantCan(ready('finance'), 'patients.manage')).toBe(false)
+  })
+
+  it('lets operational roles manage the agenda and excludes finance', () => {
+    const allowed = new Set<SupabaseClinicRole>(['admin', 'assistant', 'professional', 'manager'])
+    for (const role of roles) {
+      expect(canManageAgenda([membership('clinic-a', role)], 'clinic-a')).toBe(allowed.has(role))
+      expect(tenantCan(ready(role), 'agenda.manage')).toBe(allowed.has(role))
+    }
+    expect(canManageAgenda([membership('clinic-a', 'assistant')], 'clinic-b')).toBe(false)
   })
 })
 

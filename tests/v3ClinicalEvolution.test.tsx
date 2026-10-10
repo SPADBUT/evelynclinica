@@ -21,6 +21,16 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(),
 }))
 
+vi.mock('../src/services/appointmentRepository', () => ({
+  listAgendaDay: vi.fn(async () => ({ ok: true, value: [] })),
+  listPatientAppointments: vi.fn(async () => ({ ok: true, value: [] })),
+  listBookableProfessionals: vi.fn(async () => ({ ok: true, value: [{ userId: 'pro-1', fullName: 'Pro', role: 'professional' }] })),
+  listActiveProcedures: vi.fn(async () => ({ ok: true, value: [] })),
+  createAppointment: vi.fn(),
+  updateAppointment: vi.fn(),
+  transitionAppointment: vi.fn(),
+}))
+
 vi.mock('../src/services/patientRepository', () => ({
   listPatients: vi.fn(),
   getPatientById: vi.fn(),

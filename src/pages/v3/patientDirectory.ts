@@ -24,7 +24,6 @@ export const PATIENT_360_SECTIONS = [
   'Documentos e consentimentos',
   'Orçamentos',
   'Interações',
-  'Agenda',
 ] as const
 
 export interface V3PatientFormValue {

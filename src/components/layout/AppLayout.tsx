@@ -32,7 +32,12 @@ const nav = [
   { to: '/', label: 'Painel', icon: LayoutDashboard, end: true },
   { to: '/crm', label: 'CRM', icon: Workflow },
   { to: '/pacientes', label: 'Prontuários', icon: Users },
-  ...(supabaseStaffLogin ? [{ to: '/v3/patients', label: 'Pacientes', icon: Users }] : []),
+  ...(supabaseStaffLogin
+    ? [
+        { to: '/v3/patients', label: 'Pacientes', icon: Users },
+        { to: '/v3/agenda', label: 'Agenda clínica', icon: CalendarDays },
+      ]
+    : []),
   { to: '/agenda', label: 'Agenda', icon: CalendarDays },
   { to: '/fotos', label: 'Antes & Depois', icon: Camera },
   { to: '/termos', label: 'Consentimentos', icon: ClipboardSignature },

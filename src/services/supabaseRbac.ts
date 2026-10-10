@@ -14,6 +14,12 @@ const PATIENT_MANAGER_ROLES = ['admin', 'assistant', 'professional', 'manager'] 
  */
 const CLINICAL_RECORD_ROLES = ['admin', 'manager', 'professional'] as const
 
+/**
+ * Roles that public.can_manage_agenda allows.
+ * Finance is excluded. This is a display hint. RLS remains authoritative.
+ */
+const AGENDA_ROLES = ['admin', 'assistant', 'professional', 'manager'] as const
+
 export function hasRole(
   memberships: readonly SupabaseClinicMembership[],
   clinicId: string,
@@ -37,4 +43,11 @@ export function canAccessClinicalRecords(
   clinicId: string,
 ): boolean {
   return hasRole(memberships, clinicId, CLINICAL_RECORD_ROLES)
+}
+
+export function canManageAgenda(
+  memberships: readonly SupabaseClinicMembership[],
+  clinicId: string,
+): boolean {
+  return hasRole(memberships, clinicId, AGENDA_ROLES)
 }

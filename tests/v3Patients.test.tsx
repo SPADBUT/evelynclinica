@@ -10,6 +10,7 @@ import { resetSupabaseClientForTests } from '../src/lib/supabase'
 import { filterPatients } from '../src/pages/v3/patientDirectory'
 import { V3PatientDetailPage } from '../src/pages/v3/V3PatientDetailPage'
 import { V3PatientsPage } from '../src/pages/v3/V3PatientsPage'
+import { listPatientAppointments } from '../src/services/appointmentRepository'
 import { listClinicalContext, listClinicalRecords } from '../src/services/clinicalRepository'
 import {
   createPatient,
@@ -19,6 +20,16 @@ import {
   updatePatient,
 } from '../src/services/patientRepository'
 import type { V3Patient } from '../src/types/patient'
+
+vi.mock('../src/services/appointmentRepository', () => ({
+  listAgendaDay: vi.fn(async () => ({ ok: true, value: [] })),
+  listPatientAppointments: vi.fn(async () => ({ ok: true, value: [] })),
+  listBookableProfessionals: vi.fn(async () => ({ ok: true, value: [] })),
+  listActiveProcedures: vi.fn(async () => ({ ok: true, value: [] })),
+  createAppointment: vi.fn(),
+  updateAppointment: vi.fn(),
+  transitionAppointment: vi.fn(),
+}))
 
 vi.mock('../src/services/clinicalRepository', () => ({
   listClinicalRecords: vi.fn(),
@@ -275,13 +286,15 @@ describe('V3 patients experience', () => {
     expect(await screen.findByRole('heading', { name: 'Ana Sintetica' })).toBeTruthy()
     expect(screen.getByText('Resumo')).toBeTruthy()
     expect(screen.getByText('Histórico')).toBeTruthy()
-    expect(screen.getAllByText('Em construção')).toHaveLength(6)
+    expect(screen.getAllByText('Em construção')).toHaveLength(5)
     expect(screen.getByText('Histórico de tratamentos')).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Evoluções clínicas' })).toBeTruthy()
     expect(await screen.findByText('Nenhuma evolução')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Nova evolução' })).toBeTruthy()
     expect(screen.getByText('Documentos e consentimentos')).toBeTruthy()
-    expect(screen.getByText('Agenda')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Agenda' })).toBeTruthy()
+    expect(await screen.findByText('Nenhum horário')).toBeTruthy()
+    expect(listPatientAppointments).toHaveBeenCalledWith(expect.objectContaining({ activeClinicId: 'clinic-a' }), 'patient-1')
     expect(getPatientById).toHaveBeenCalledWith(expect.objectContaining({ activeClinicId: 'clinic-a' }), 'patient-1')
     expect(listClinicalRecords).toHaveBeenCalledWith(expect.objectContaining({ activeClinicId: 'clinic-a' }), 'patient-1')
     expect(vi.mocked(listClinicalRecords).mock.calls[0]).toHaveLength(2)

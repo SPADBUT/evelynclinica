@@ -45,6 +45,8 @@ describe('V3 patients stay out of the default V2 path', () => {
     await submitLogin('evelyn@clinica.com', 'evelyn123')
     expect(await screen.findByText('Bom atendimento, Evelyn')).toBeTruthy()
     expect(screen.queryByRole('link', { name: 'Pacientes' })).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Agenda clínica' })).toBeNull()
+    expect(screen.getByRole('link', { name: 'Agenda' })).toBeTruthy()
     fireEvent.click(screen.getByRole('link', { name: 'Prontuários' }))
     expect(await screen.findByRole('heading', { name: 'Prontuários' })).toBeTruthy()
     expect(screen.queryByText('Nova paciente')).toBeNull()
