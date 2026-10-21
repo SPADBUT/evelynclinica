@@ -66,7 +66,13 @@ describe('supabase client', () => {
       'https://example.supabase.co',
       'anon-key',
       expect.objectContaining({
-        auth: expect.objectContaining({ storageKey: 'evelyn-supabase-auth' }),
+        auth: expect.objectContaining({
+          storageKey: 'evelyn-supabase-auth',
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: false,
+          flowType: 'pkce',
+        }),
       }),
     )
     const options = vi.mocked(createClient).mock.calls[0][2] as { auth?: object }

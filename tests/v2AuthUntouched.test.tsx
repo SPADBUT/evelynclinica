@@ -93,6 +93,15 @@ describe('V2 auth stays the default path', () => {
     )
   })
 
+  it('keeps /auth/recovery on the V2 login when the feature flag is off', async () => {
+    window.history.pushState({}, '', '/auth/recovery?code=fake-code')
+    render(<App />)
+    expect(await screen.findByText('Clínica Estética · V2')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Entrar' })).toBeTruthy()
+    expect(screen.queryByText('Recuperação de senha')).toBeNull()
+    expect(createClient).not.toHaveBeenCalled()
+  })
+
   it('still renders the V2 login when the feature flag is off', async () => {
     render(
       <SupabaseAuthProvider>

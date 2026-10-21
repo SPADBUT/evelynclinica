@@ -24,7 +24,11 @@ export function getSupabaseClient(): SupabaseClient {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
-        detectSessionInUrl: true,
+        // Password login uses the password grant and does not read this setting.
+        // The recovery route exchanges a PKCE code once. Leaving detection on
+        // would exchange that same code during client startup.
+        detectSessionInUrl: false,
+        flowType: 'pkce',
         storageKey: 'evelyn-supabase-auth',
       },
     })

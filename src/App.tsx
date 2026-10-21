@@ -19,6 +19,7 @@ import { SignConsentPage } from './pages/patient/SignConsentPage'
 import { PatientContractsPage } from './pages/patient/PatientContractsPage'
 import { V3AgendaRoute } from './v3/V3AgendaRoutes'
 import { V3PatientDetailRoute, V3PatientListRoute } from './v3/V3PatientRoutes'
+import { V3RecoveryRoute } from './v3/V3RecoveryRoutes'
 
 /** Mirrors Vite `base` (from VITE_BASE_PATH). Root `/` → no basename. */
 const routerBasename = import.meta.env.BASE_URL.replace(/\/$/, '') || undefined
@@ -30,6 +31,7 @@ export default function App() {
         <BrowserRouter basename={routerBasename}>
           <Routes>
             <Route path="login" element={<LoginPage />} />
+            <Route path="auth/recovery" element={<V3RecoveryRoute />} />
 
             <Route element={<RequireStaff />}>
               <Route element={<AppLayout />}>

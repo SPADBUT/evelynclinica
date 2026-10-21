@@ -6,6 +6,7 @@ import { useV3Tenant } from '../context/V3TenantContext'
 import { loadClinicData } from '../lib/storage'
 import { Button } from '../components/ui/Button'
 import { isAuthorizedStaff } from '../auth/staffAccess'
+import { StaffRecoveryRequest } from '../auth/StaffRecoveryRequest'
 import { LoginScreen } from './LoginScreen'
 
 function isV2PatientEmail(email: string): boolean {
@@ -93,6 +94,7 @@ export function SupabaseStaffLogin() {
       loading={submitting || (Boolean(auth.user) && tenant.status === 'loading')}
       extra={
         <>
+          <StaffRecoveryRequest />
           {clinicPicker}
           {denial}
         </>

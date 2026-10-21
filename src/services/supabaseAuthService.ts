@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { recoveryRedirectTo } from '../lib/staffRecovery'
 import { getSupabaseClient } from '../lib/supabase'
 import { SupabaseAuthError } from '../lib/supabaseAuthError'
 import {
@@ -187,6 +188,32 @@ export async function signInWithPassword(
   }
 
   return { ok: true, userId: data.user.id }
+}
+
+export async function requestPasswordRecovery(
+  email: string,
+  origin: string,
+): Promise<{ ok: true } | { ok: false; error: SupabaseAuthError }> {
+  let client: SupabaseClient
+  try {
+    client = getSupabaseClient()
+  } catch (error) {
+    if (error instanceof SupabaseAuthError) return { ok: false, error }
+    return {
+      ok: false,
+      error: new SupabaseAuthError('auth_failed', 'Não foi possível enviar o link de recuperação.'),
+    }
+  }
+
+  const redirectTo = recoveryRedirectTo(origin)
+  const { error } = await client.auth.resetPasswordForEmail(email.trim(), { redirectTo })
+  if (error) {
+    return {
+      ok: false,
+      error: new SupabaseAuthError('auth_failed', 'Não foi possível enviar o link de recuperação.'),
+    }
+  }
+  return { ok: true }
 }
 
 export async function signOut(): Promise<{ ok: true } | { ok: false; error: SupabaseAuthError }> {
