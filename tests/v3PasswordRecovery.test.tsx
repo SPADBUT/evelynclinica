@@ -252,4 +252,99 @@ describe('V3 password recovery', () => {
     })
     expect(await screen.findByText('Se existir uma conta de staff, o link de recuperação foi enviado.')).toBeTruthy()
   })
+
+  const leakedAuthText =
+    'token=raw-recovery-code apikey=service-role-secret https://example.supabase.co/auth/v1/verify'
+
+  async function submitRecovery(error: { message: string; status?: number; code?: string }) {
+    auth.resetPasswordForEmail.mockResolvedValue({ data: {}, error })
+    render(<StaffRecoveryRequest origin="https://preview.example" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Esqueci minha senha' }))
+    fireEvent.change(screen.getByPlaceholderText('staff@clinica.com'), {
+      target: { value: 'staff@example.com' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar link de recuperação' }))
+    await waitFor(() => expect(auth.resetPasswordForEmail).toHaveBeenCalledTimes(1))
+  }
+
+  function expectLeakHidden() {
+    const text = document.body.textContent ?? ''
+    expect(text).not.toContain('raw-recovery-code')
+    expect(text).not.toContain('service-role-secret')
+    expect(text).not.toContain('auth/v1/verify')
+    expect(text).not.toContain(leakedAuthText)
+  }
+
+  it('maps a 429 without showing the raw auth error', async () => {
+    await submitRecovery({
+      message: leakedAuthText,
+      status: 429,
+      code: 'over_email_send_rate_limit',
+    })
+
+    expect(
+      screen.getByText('O envio de e-mail está temporariamente limitado. Aguarde antes de pedir outro link.'),
+    ).toBeTruthy()
+    expectLeakHidden()
+  })
+
+  it('maps HTTP 429 even when the auth code is absent', async () => {
+    await submitRecovery({ message: leakedAuthText, status: 429 })
+
+    expect(
+      screen.getByText('O envio de e-mail está temporariamente limitado. Aguarde antes de pedir outro link.'),
+    ).toBeTruthy()
+    expectLeakHidden()
+  })
+
+  it('maps a transport failure with status 0', async () => {
+    await submitRecovery({ message: leakedAuthText, status: 0 })
+
+    expect(screen.getByText('Não foi possível contactar o serviço de autenticação.')).toBeTruthy()
+    expectLeakHidden()
+  })
+
+  it('keeps a missing status on the generic recovery message', async () => {
+    await submitRecovery({ message: leakedAuthText, code: 'unexpected' })
+
+    expect(screen.getByText('Não foi possível enviar o link de recuperação.')).toBeTruthy()
+    expect(screen.queryByText('Não foi possível contactar o serviço de autenticação.')).toBeNull()
+    expectLeakHidden()
+  })
+
+  it('maps unexpected_failure without showing the raw auth error', async () => {
+    await submitRecovery({ message: leakedAuthText, status: 400, code: 'unexpected_failure' })
+
+    expect(screen.getByText('O serviço de e-mail não concluiu o envio.')).toBeTruthy()
+    expectLeakHidden()
+  })
+
+  it('prefers the rate-limit message when that code arrives with status 500', async () => {
+    await submitRecovery({
+      message: leakedAuthText,
+      status: 500,
+      code: 'over_email_send_rate_limit',
+    })
+
+    expect(
+      screen.getByText('O envio de e-mail está temporariamente limitado. Aguarde antes de pedir outro link.'),
+    ).toBeTruthy()
+    expect(screen.queryByText('O serviço de e-mail não concluiu o envio.')).toBeNull()
+    expectLeakHidden()
+  })
+
+  it('maps HTTP 500 and above as an email service failure', async () => {
+    await submitRecovery({ message: leakedAuthText, status: 503 })
+
+    expect(screen.getByText('O serviço de e-mail não concluiu o envio.')).toBeTruthy()
+    expectLeakHidden()
+  })
+
+  it('keeps unrecognized auth errors on the generic recovery message', async () => {
+    await submitRecovery({ message: leakedAuthText, status: 400, code: 'validation_failed' })
+
+    expect(screen.getByText('Não foi possível enviar o link de recuperação.')).toBeTruthy()
+    expect(screen.queryByText('O serviço de e-mail não concluiu o envio.')).toBeNull()
+    expectLeakHidden()
+  })
 })

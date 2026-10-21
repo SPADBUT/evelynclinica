@@ -208,12 +208,33 @@ export async function requestPasswordRecovery(
   const redirectTo = recoveryRedirectTo(origin)
   const { error } = await client.auth.resetPasswordForEmail(email.trim(), { redirectTo })
   if (error) {
-    return {
-      ok: false,
-      error: new SupabaseAuthError('auth_failed', 'Não foi possível enviar o link de recuperação.'),
-    }
+    return { ok: false, error: recoveryRequestFailure(error) }
   }
   return { ok: true }
+}
+
+const RECOVERY_LINK_FAILED = 'Não foi possível enviar o link de recuperação.'
+const RECOVERY_RATE_LIMITED =
+  'O envio de e-mail está temporariamente limitado. Aguarde antes de pedir outro link.'
+const RECOVERY_UNREACHABLE = 'Não foi possível contactar o serviço de autenticação.'
+const RECOVERY_MAILER_FAILED = 'O serviço de e-mail não concluiu o envio.'
+
+function recoveryRequestFailure(error: { code?: unknown; status?: unknown }): SupabaseAuthError {
+  const code = typeof error.code === 'string' ? error.code : ''
+  const status = typeof error.status === 'number' && Number.isFinite(error.status) ? error.status : undefined
+
+  if (code === 'over_email_send_rate_limit' || status === 429) {
+    return new SupabaseAuthError('auth_failed', RECOVERY_RATE_LIMITED)
+  }
+  // AuthRetryableFetchError uses status 0 when fetch fails before a response.
+  // A missing status is a different error and stays on the generic message.
+  if (status === 0) {
+    return new SupabaseAuthError('auth_failed', RECOVERY_UNREACHABLE)
+  }
+  if (code === 'unexpected_failure' || (status !== undefined && status >= 500)) {
+    return new SupabaseAuthError('auth_failed', RECOVERY_MAILER_FAILED)
+  }
+  return new SupabaseAuthError('auth_failed', RECOVERY_LINK_FAILED)
 }
 
 export async function signOut(): Promise<{ ok: true } | { ok: false; error: SupabaseAuthError }> {
