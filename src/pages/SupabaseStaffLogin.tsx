@@ -5,7 +5,7 @@ import { useSupabaseAuth } from '../context/SupabaseAuthContext'
 import { useV3Tenant } from '../context/V3TenantContext'
 import { loadClinicData } from '../lib/storage'
 import { Button } from '../components/ui/Button'
-import { isAuthorizedStaff } from '../auth/staffAccess'
+import { isAuthorizedStaff, V3_STAFF_HOME } from '../auth/staffAccess'
 import { StaffRecoveryRequest } from '../auth/StaffRecoveryRequest'
 import { LoginScreen } from './LoginScreen'
 
@@ -24,7 +24,7 @@ export function SupabaseStaffLogin() {
   const [submitting, setSubmitting] = useState(false)
 
   if (v2.isPatient) return <Navigate to="/portal" replace />
-  if (isAuthorizedStaff(tenant)) return <Navigate to="/" replace />
+  if (isAuthorizedStaff(tenant)) return <Navigate to={V3_STAFF_HOME} replace />
 
   const choosingClinic = tenant.status === 'authenticated_needs_clinic_selection'
   const denied =
@@ -89,6 +89,7 @@ export function SupabaseStaffLogin() {
 
   return (
     <LoginScreen
+      subtitle="Clínica Estética · V3"
       onSubmit={onSubmit}
       error={error || anonymousError}
       loading={submitting || (Boolean(auth.user) && tenant.status === 'loading')}

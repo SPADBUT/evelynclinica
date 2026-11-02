@@ -21,6 +21,8 @@ const harness = vi.hoisted(() => {
 const db = vi.hoisted(() => ({
   profile: null as unknown,
   memberships: [] as unknown[],
+  patients: [] as Array<Record<string, unknown>>,
+  patientClinicIds: [] as string[],
 }))
 
 function clinicResult() {
@@ -55,6 +57,36 @@ function clinicResult() {
           : null,
         error: null,
       }),
+  }
+  return builder
+}
+
+function patientResult() {
+  const builder = {
+    select: () => builder,
+    eq: (column: string, value: string) => {
+      if (column === 'clinic_id') db.patientClinicIds.push(value)
+      return builder
+    },
+    is: () => builder,
+    order: () => builder,
+    insert: () => {
+      throw new Error('provisioning is not allowed')
+    },
+    upsert: () => {
+      throw new Error('provisioning is not allowed')
+    },
+    update: () => {
+      throw new Error('provisioning is not allowed')
+    },
+    delete: () => {
+      throw new Error('provisioning is not allowed')
+    },
+    maybeSingle: () => Promise.resolve({ data: db.patients[0] ?? null, error: null }),
+    then: (
+      onFulfilled: (value: { data: unknown; error: null }) => unknown,
+      onRejected?: (reason: unknown) => unknown,
+    ) => Promise.resolve({ data: db.patients, error: null }).then(onFulfilled, onRejected),
   }
   return builder
 }
@@ -109,6 +141,7 @@ function installClient() {
     if (table === 'profiles') return queryResult(db.profile)
     if (table === 'clinic_memberships') return queryResult(db.memberships)
     if (table === 'clinics') return clinicResult()
+    if (table === 'patients') return patientResult()
     throw new Error(`unexpected table ${table}`)
   })
   vi.mocked(createClient).mockReturnValue({ auth, from } as unknown as SupabaseClient)
@@ -164,6 +197,8 @@ describe('staff login when Supabase Auth is enabled', () => {
     harness.listener = null
     db.profile = null
     db.memberships = []
+    db.patients = []
+    db.patientClinicIds = []
     auth.getSession.mockReset()
     auth.signInWithPassword.mockReset()
     auth.signOut.mockReset()
@@ -177,7 +212,7 @@ describe('staff login when Supabase Auth is enabled', () => {
     localStorage.clear()
   })
 
-  it('uses Supabase Auth for staff and opens the V2 shell after one active membership', async () => {
+  it('uses Supabase Auth for staff and opens the V3 patient list after one active membership', async () => {
     staffProfile()
     oneMembership()
     auth.signInWithPassword.mockImplementation(async () => {
@@ -186,10 +221,38 @@ describe('staff login when Supabase Auth is enabled', () => {
     })
 
     renderApp()
-    expect(await screen.findByText('Clínica Estética · V2')).toBeTruthy()
+    expect(await screen.findByText('Clínica Estética · V3')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Esqueci minha senha' })).toBeTruthy()
+    expect(screen.queryByText('Clínica Estética · V2')).toBeNull()
+
+    db.patients = [
+      {
+        id: 'patient-synthetic-1',
+        clinic_id: 'clinic-a',
+        full_name: 'Lia Sintetica',
+        email: 'lia.sintetica@example.com',
+        phone: '11988887777',
+        cpf: null,
+        birth_date: null,
+        gender: null,
+        address: null,
+        allergies: null,
+        medications: null,
+        notes: null,
+        status: 'active',
+        deleted_at: null,
+        created_at: '2026-03-01T12:00:00.000Z',
+        updated_at: '2026-03-02T12:00:00.000Z',
+      },
+    ]
 
     await submitLogin('staff@example.com', 'staff-secret')
-    expect(await screen.findByText('Bom atendimento, Evelyn')).toBeTruthy()
+    expect(await screen.findByRole('link', { name: 'Lia Sintetica' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Nova paciente' })).toBeTruthy()
+    expect(screen.queryByText('Não foi possível listar')).toBeNull()
+    expect(screen.queryByText('Bom atendimento, Evelyn')).toBeNull()
+    expect(db.patientClinicIds.length).toBeGreaterThan(0)
+    expect(db.patientClinicIds.every((clinicId) => clinicId === 'clinic-a')).toBe(true)
     expect(screen.getByText('Checkpoint Staff')).toBeTruthy()
     expect(screen.getByText('admin')).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Prontuários' })).toBeTruthy()
@@ -242,6 +305,7 @@ describe('staff login when Supabase Auth is enabled', () => {
     await submitLogin('staff@example.com', 'staff-secret')
 
     expect(await screen.findByText('Nenhuma membership ativa.')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Nova paciente' })).toBeNull()
     expect(screen.queryByText('Bom atendimento, Evelyn')).toBeNull()
     expect(screen.queryByRole('link', { name: 'CRM' })).toBeNull()
 
@@ -278,10 +342,12 @@ describe('staff login when Supabase Auth is enabled', () => {
     await submitLogin('staff@example.com', 'staff-secret')
 
     expect(await screen.findByText('Há mais de uma clínica ativa. Selecione uma clínica.')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Nova paciente' })).toBeNull()
     expect(screen.queryByText('Bom atendimento, Evelyn')).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /manager/i }))
-    expect(await screen.findByText('Bom atendimento, Evelyn')).toBeTruthy()
+    expect(await screen.findByRole('button', { name: 'Nova paciente' })).toBeTruthy()
+    expect(screen.queryByText('Bom atendimento, Evelyn')).toBeNull()
     expect(screen.getByText('Checkpoint Staff')).toBeTruthy()
     expect(screen.getByText('manager')).toBeTruthy()
   })
@@ -295,9 +361,12 @@ describe('staff login when Supabase Auth is enabled', () => {
       return { error: null }
     })
 
+    window.history.replaceState({}, '', '/login')
     const first = renderApp()
-    expect(await screen.findByText('Checkpoint Staff')).toBeTruthy()
-    expect(screen.getByText('Bom atendimento, Evelyn')).toBeTruthy()
+    expect(await screen.findByRole('button', { name: 'Nova paciente' })).toBeTruthy()
+    expect(screen.getByText('Checkpoint Staff')).toBeTruthy()
+    expect(screen.queryByText('Bom atendimento, Evelyn')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Entrar' })).toBeNull()
     expect(auth.signInWithPassword).not.toHaveBeenCalled()
 
     first.unmount()
@@ -311,6 +380,17 @@ describe('staff login when Supabase Auth is enabled', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Sair' }))
     await waitFor(() => expect(auth.signOut).toHaveBeenCalledTimes(1))
     expect(await screen.findByRole('button', { name: 'Entrar' })).toBeTruthy()
+    expect(screen.getByText('Clínica Estética · V3')).toBeTruthy()
+    expect(screen.queryByText('Bom atendimento, Evelyn')).toBeNull()
+  })
+
+  it('keeps an unauthorized visitor out of the V3 patient route', async () => {
+    window.history.replaceState({}, '', '/v3/patients')
+    renderApp()
+
+    expect(await screen.findByRole('button', { name: 'Entrar' })).toBeTruthy()
+    expect(screen.getByText('Clínica Estética · V3')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Nova paciente' })).toBeNull()
     expect(screen.queryByText('Bom atendimento, Evelyn')).toBeNull()
   })
 

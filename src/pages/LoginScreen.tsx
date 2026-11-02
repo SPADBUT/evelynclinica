@@ -7,11 +7,13 @@ export function LoginScreen({
   error,
   loading = false,
   extra,
+  subtitle = 'Clínica Estética · V2',
 }: {
   onSubmit: (email: string, password: string) => Promise<void> | void
   error?: string
   loading?: boolean
   extra?: ReactNode
+  subtitle?: string
 }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -33,7 +35,7 @@ export function LoginScreen({
       <div className="relative mx-auto flex min-h-screen max-w-lg flex-col justify-center px-4 py-12">
         <div className="mb-8 text-center animate-[fadeUp_0.6s_ease-out]">
           <p className="font-display text-5xl text-plum md:text-6xl">Evelyn</p>
-          <p className="mt-2 text-xs uppercase tracking-[0.25em] text-mauve">Clínica Estética · V2</p>
+          <p className="mt-2 text-xs uppercase tracking-[0.25em] text-mauve">{subtitle}</p>
           <p className="mt-4 text-sm text-muted">
             Acesse com seu login para a área clínica ou para assinar termos.
           </p>

@@ -4,6 +4,7 @@ import type { AuthError } from '@supabase/supabase-js'
 import { Button } from '../components/ui/Button'
 import { Field, Input } from '../components/ui/Field'
 import { getSupabaseClient } from '../lib/supabase'
+import { V3_STAFF_HOME } from '../auth/staffAccess'
 import { recoveryUrlWithoutSecrets, type RecoveryGate } from '../lib/staffRecovery'
 import {
   bootstrapRecoverySession,
@@ -60,7 +61,7 @@ export function V3PasswordRecoveryPage() {
       clearRecoveryPending()
       const cleaned = recoveryUrlWithoutSecrets(window.location.href)
       window.history.replaceState(window.history.state, '', cleaned)
-      navigate('/', { replace: true })
+      navigate(V3_STAFF_HOME, { replace: true })
     } catch {
       setFormError('Não foi possível atualizar a senha.')
       setSaving(false)
@@ -118,7 +119,7 @@ export function V3PasswordRecoveryPage() {
 
 function gateMessage(status: Exclude<RecoveryGate['status'], 'ready'>): string {
   if (status === 'expired') return 'O link de recuperação expirou ou já foi usado.'
-  if (status === 'not_recovery') return 'Este link não é uma recuperação de senha.'
+  if (status === 'not_recovery') return 'Este link não corresponde a uma recuperação de senha válida.'
   return 'Não há sessão de recuperação. Abra o link mais recente neste navegador.'
 }
 
